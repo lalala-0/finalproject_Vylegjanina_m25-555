@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "finalproject-vylegjanina-m25-555"
+version = "0.1.0"
+description = "Платформа для отслеживания и симуляции торговли валютами"
+authors = ["lalala-0 <vylegzhanina.alena@yandex.ru>"]
+readme = "README.md"
+packages = [
+    { include = "valutatrade_hub" },
+]
+
+[tool.poetry.scripts]
+project = "main:main"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.14.3"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = ["venv", ".venv", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = []
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
