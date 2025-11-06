@@ -1,6 +1,14 @@
 import hashlib
 from datetime import datetime
+from copy import deepcopy
 
+
+EXCHANGE_RATES = {
+    "USD": 1.0,
+    "EUR": 1.1,
+    "BTC": 65000.0,
+    "ETH": 3500.0,
+}
 
 class User:
     def __init__(self, user_id: int, username: str, password: str, salt: str = None, registration_date: datetime = None):
@@ -104,5 +112,55 @@ class Wallet:
         if amount > self._balance:
             raise ValueError("Недостаточно средств на балансе")
 
+
+class Portfolio:
+    def __init__(self, user_id: int, wallets: dict[str, Wallet]):
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError("user_id должен быть положительным числом")
+
+        self._user_id = user_id
+        self._wallets = wallets or {}
+
+    @property
+    def user_id(self) -> int:
+        #TODO: должен возвращать "объект пользователя (без возможности перезаписи)."
+        return self._user_id
+
+    @property
+    def wallets(self) -> dict[str, Wallet]:
+        """Возвращает копию словаря кошельков."""
+        return deepcopy(self._wallets)
+
+    def add_currency(self, currency_code: str):
+        """Добавляет новый кошелёк, если его ещё нет."""
+        code = currency_code.upper()
+        if code in self._wallets:
+            raise ValueError(f"Кошелёк для валюты {code} уже существует")
+
+        self._wallets[code] = Wallet(currency_code=code)
+        return self._wallets[code]
+
+    def get_wallet(self, currency_code: str) -> Wallet:
+        """Возвращает объект Wallet по коду валюты."""
+        code = currency_code.upper()
+        wallet = self._wallets.get(code)
+        if wallet is None:
+            raise KeyError(f"Кошелёк для валюты {code} не найден")
+        return wallet
+
+    def get_total_value(self, base_currency: str = "USD") -> float:
+        """Возвращает общую стоимость портфеля в выбранной базовой валюте."""
+        base_currency = base_currency.upper()
+        if base_currency not in EXCHANGE_RATES:
+            raise ValueError(f"Нет курса для валюты {base_currency}")
+
+        total_value_usd = 0.0
+        for code, wallet in self._wallets.items():
+            rate = EXCHANGE_RATES.get(code)
+            if rate is None:
+                raise ValueError(f"Нет курса для валюты {code}")
+            total_value_usd += wallet.balance * rate
+
+        return round(total_value_usd / EXCHANGE_RATES[base_currency], 2)
 
 
