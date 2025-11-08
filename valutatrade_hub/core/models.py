@@ -1,6 +1,8 @@
 import hashlib
 from datetime import datetime
 from copy import deepcopy
+
+from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InsufficientFundsError
 from .utils import get_exchange_rate
 
 class User:
@@ -105,7 +107,7 @@ class Wallet:
         if amount <= 0:
             raise ValueError("Сумма снятия должна быть положительной")
         if amount > self._balance:
-            raise ValueError("Недостаточно средств на балансе")
+            raise InsufficientFundsError(available=self._balance, required=amount, code=self.currency_code)
         self._balance -= float(amount)
 
 
@@ -141,7 +143,7 @@ class Portfolio:
         code = currency_code.upper()
         wallet = self._wallets.get(code)
         if wallet is None:
-            raise KeyError(f"Кошелёк для валюты {code} не найден")
+            raise CurrencyNotFoundError(code)
         return wallet
 
     def get_total_value(self, base_currency: str = "USD") -> float:
@@ -157,7 +159,7 @@ class Portfolio:
         try:
             rate, _ = get_exchange_rate(code, base_currency)
         except ValueError:
-            raise ValueError(f"Нет курса для валют {code}→{base_currency}")
+            raise CurrencyNotFoundError(code)
 
         total_value_base += wallet.balance * rate
 

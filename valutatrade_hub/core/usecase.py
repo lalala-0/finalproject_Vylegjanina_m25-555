@@ -1,3 +1,5 @@
+from valutatrade_hub.core.currancies import get_currency
+from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundError, InsufficientFundsError
 from . import utils as u
 from .constants import USERS_FILE, PORTFOLIOS_FILE, RATES_FILE
 from .models import User, Wallet, Portfolio
@@ -64,13 +66,13 @@ def login(username: str, password: str) -> str:
 def show_portfolio(base: str = "USD") -> str:
     """Показывает все кошельки и общую стоимость в базовой валюте."""
     if _current_user is None or _current_portfolio is None:
-        return "Сначала выполните login"
+        raise ValueError("Сначала выполните login")
 
     base = base.upper()
     rates = u.load_json(RATES_FILE)
     base_found = any(base in key.split("_") for key in rates.keys() if "_" in key)
     if not base_found:
-        return f"Неизвестная базовая валюта '{base}'"
+        raise CurrencyNotFoundError(base)
 
     wallets = _current_portfolio.wallets
     if not wallets:
@@ -97,13 +99,17 @@ def show_portfolio(base: str = "USD") -> str:
 def buy(currency: str, amount: float) -> str:
     """Купить валюту и увеличить баланс кошелька."""
     if _current_user is None or _current_portfolio is None:
-        return "Сначала выполните login"
+        raise ValueError("Сначала выполните login")
     if amount <= 0:
-        return "'amount' должен быть положительным числом"
+        raise ValueError("'amount' должен быть положительным числом")
 
     currency = currency.upper()
-    wallets = _current_portfolio._wallets
+    try:
+        get_currency(currency) 
+    except CurrencyNotFoundError:
+        raise
 
+    wallets = _current_portfolio._wallets
     if currency not in wallets:
         wallets[currency] = Wallet(currency, 0.0)
 
@@ -115,8 +121,8 @@ def buy(currency: str, amount: float) -> str:
 
     try:
         rate, _ = u.get_exchange_rate(currency, "USD")
-    except Exception:
-        return f"Не удалось получить курс для {currency}→USD"
+    except Exception as e:
+        raise ApiRequestError(str(e))
 
 
     value_usd = amount * rate
@@ -128,23 +134,21 @@ def buy(currency: str, amount: float) -> str:
 def sell(currency: str, amount: float) -> str:
     """Продать валюту: уменьшить баланс и начислить выручку в USD."""
     if _current_user is None or _current_portfolio is None:
-        return "Сначала выполните login"
+        raise ValueError("Сначала выполните login")
     if amount <= 0:
-        return "'amount' должен быть положительным числом"
+        raise ValueError("'amount' должен быть положительным числом")
 
     currency = currency.upper()
     wallets = _current_portfolio._wallets
-
     if currency not in wallets:
-        return f"У вас нет кошелька '{currency}'. Добавьте валюту: она создаётся автоматически при первой покупке."
+        raise CurrencyNotFoundError(currency)
 
     wallet = wallets[currency]
     old_balance = wallet.balance
-
     try:
         wallet.withdraw(amount)
-    except ValueError as e:
-        return str(e)
+    except ValueError:
+        raise InsufficientFundsError(wallet.balance, amount, currency)
 
     if currency == "USD":
         _save_portfolio()
@@ -157,17 +161,15 @@ def sell(currency: str, amount: float) -> str:
 
     try:
         rate, _ = u.get_exchange_rate(currency, "USD")
-    except Exception:
+    except Exception as e:
         _save_portfolio()
-        return f"Не удалось получить курс для {currency}→USD. Продажа завершена без начисления USD."
+        raise ApiRequestError(str(e))
 
     revenue_usd = amount * rate
-    usd_wallet = _current_portfolio.get_wallet("USD") if "USD" in _current_portfolio._wallets else None
-    if usd_wallet is None:
-        usd_wallet = _current_portfolio.add_wallet("USD", 0.0)
-
+    usd_wallet = _current_portfolio.get_wallet("USD") if "USD" in _current_portfolio._wallets else _current_portfolio.add_wallet("USD", 0.0)
     old_usd_balance = usd_wallet.balance
     usd_wallet.deposit(revenue_usd)
+    _save_portfolio()
 
     return (
         f"Продажа выполнена: {amount:.4f} {currency} по курсу {rate:.2f} USD/{currency}\n"
@@ -183,11 +185,17 @@ def get_rate(frm: str, to: str) -> str:
     frm, to = frm.upper(), to.upper()
 
     try:
+        get_currency(frm)
+        get_currency(to)
+    except CurrencyNotFoundError:
+        raise
+
+    try:
         rate, updated = u.get_exchange_rate(frm, to)
         inv = 1 / rate
-    except Exception:
-        return f"Курс {frm}→{to} недоступен. Повторите попытку позже."
-
+    except Exception as e:
+        raise ApiRequestError(str(e))
+    
     return (
         f"Курс {frm} → {to}: {rate:.6f} (обновлено: {updated.strftime('%Y-%m-%d %H:%M:%S')})\n"
         f"Обратный курс {to} → {frm}: {inv:.6f}"
