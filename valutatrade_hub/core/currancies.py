@@ -1,12 +1,7 @@
 # currencies.py
 from abc import ABC, abstractmethod
 from typing import Dict
-
-
-class CurrencyNotFoundError(Exception):
-    """Выбрасывается, если код валюты не найден в реестре."""
-    pass
-
+from .exceptions import CurrencyNotFoundError
 
 class Currency(ABC):
     """Абстрактный базовый класс для валют."""

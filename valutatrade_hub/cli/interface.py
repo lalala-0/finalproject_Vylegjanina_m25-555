@@ -1,4 +1,6 @@
 import shlex
+
+from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundError, InsufficientFundsError
 from ..core import usecase
 import prompt
 from functools import wraps
@@ -54,7 +56,13 @@ def cli_command(required_args=None, optional_args=None):
                 print(result)
 
             except ValueError as e:
-                print(f"Ошибка: {e}")
+                print(e)
+            except InsufficientFundsError as e:
+                print(f"Недостаточно средств: доступно {e.available} {e.code}, требуется {e.required} {e.code}")
+            except CurrencyNotFoundError as e:
+                print(f"Неизвестная валюта '{e.code}'. Используйте help get-rate или проверьте поддерживаемые валюты.")
+            except ApiRequestError as e:
+                print(f"Ошибка при обращении к внешнему API: {e.reason}. Попробуйте позже или проверьте сеть.")
             except Exception as e:
                 print(f"Неожиданная ошибка: {e}")
 
