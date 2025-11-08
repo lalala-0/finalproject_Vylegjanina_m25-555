@@ -106,6 +106,7 @@ class Wallet:
             raise ValueError("Сумма снятия должна быть положительной")
         if amount > self._balance:
             raise ValueError("Недостаточно средств на балансе")
+        self._balance -= float(amount)
 
 
 class Portfolio:

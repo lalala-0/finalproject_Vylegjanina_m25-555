@@ -24,6 +24,8 @@ def get_exchange_rate(from_currency: str, to_currency: str) -> tuple[float, date
     Если курса нет — вызывает исключение.
     Возвращает (rate, updated_at).
     """
+    if from_currency == to_currency:
+        return 1.0, datetime.now()
     rates_data = load_json(RATES_FILE)
     if not rates_data:
         raise ValueError("Файл с курсами пуст или не найден")
@@ -32,11 +34,12 @@ def get_exchange_rate(from_currency: str, to_currency: str) -> tuple[float, date
     to_currency = to_currency.upper()
 
     key = f"{from_currency}_{to_currency}"
+    reverse_key = f"{to_currency}_{from_currency}"
+
     if key in rates_data:
         entry = rates_data[key]
         return entry["rate"], datetime.fromisoformat(entry["updated_at"])
 
-    reverse_key = f"{to_currency}_{from_currency}"
     if reverse_key in rates_data:
         entry = rates_data[reverse_key]
         reverse_rate = 1 / entry["rate"]

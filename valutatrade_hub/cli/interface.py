@@ -67,7 +67,7 @@ def cli():
 
     while True:
         try:
-            user_input = prompt.string("Введите команду: ")
+            user_input = prompt.string("\n>>>Введите команду: ")
         except (KeyboardInterrupt, EOFError):
             print("\nЗавершение работы.")
             break

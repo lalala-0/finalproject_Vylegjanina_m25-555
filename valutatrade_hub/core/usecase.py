@@ -1,5 +1,5 @@
 from . import utils as u
-from .constants import USERS_FILE, PORTFOLIOS_FILE, EXCHANGE_RATES
+from .constants import USERS_FILE, PORTFOLIOS_FILE, RATES_FILE
 from .models import User, Wallet, Portfolio
 from datetime import datetime
 
@@ -67,7 +67,9 @@ def show_portfolio(base: str = "USD") -> str:
         return "Сначала выполните login"
 
     base = base.upper()
-    if base not in EXCHANGE_RATES:
+    rates = u.load_json(RATES_FILE)
+    base_found = any(base in key.split("_") for key in rates.keys() if "_" in key)
+    if not base_found:
         return f"Неизвестная базовая валюта '{base}'"
 
     wallets = _current_portfolio.wallets
@@ -124,35 +126,56 @@ def buy(currency: str, amount: float) -> str:
 
 
 def sell(currency: str, amount: float) -> str:
-    """Продать валюту и уменьшить баланс кошелька."""
+    """Продать валюту: уменьшить баланс и начислить выручку в USD."""
     if _current_user is None or _current_portfolio is None:
         return "Сначала выполните login"
     if amount <= 0:
         return "'amount' должен быть положительным числом"
 
     currency = currency.upper()
-    try:
-        wallet = _current_portfolio.get_wallet(currency)
-    except KeyError:
+    wallets = _current_portfolio._wallets
+
+    if currency not in wallets:
         return f"У вас нет кошелька '{currency}'. Добавьте валюту: она создаётся автоматически при первой покупке."
 
+    wallet = wallets[currency]
+    old_balance = wallet.balance
+
     try:
-        old_balance = wallet.balance
         wallet.withdraw(amount)
     except ValueError as e:
         return str(e)
 
-    _save_portfolio()
+    if currency == "USD":
+        _save_portfolio()
+        return (
+            f"Продажа выполнена: {amount:.2f} USD\n"
+            f"Изменения в портфеле:\n"
+            f"- USD: было {old_balance:.2f} → стало {wallet.balance:.2f}\n"
+            f"Примечание: продажа базовой валюты (USD) не конвертируется."
+        )
 
     try:
         rate, _ = u.get_exchange_rate(currency, "USD")
     except Exception:
-        return f"Не удалось получить курс для {currency}→USD"
+        _save_portfolio()
+        return f"Не удалось получить курс для {currency}→USD. Продажа завершена без начисления USD."
 
     revenue_usd = amount * rate
-    return (f"Продажа выполнена: {amount:.4f} {currency} по курсу {rate:.2f} USD/{currency}\n"
-            f"Изменения в портфеле:\n- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
-            f"Оценочная выручка: {revenue_usd:.2f} USD")
+    usd_wallet = _current_portfolio.get_wallet("USD") if "USD" in _current_portfolio._wallets else None
+    if usd_wallet is None:
+        usd_wallet = _current_portfolio.add_wallet("USD", 0.0)
+
+    old_usd_balance = usd_wallet.balance
+    usd_wallet.deposit(revenue_usd)
+
+    return (
+        f"Продажа выполнена: {amount:.4f} {currency} по курсу {rate:.2f} USD/{currency}\n"
+        f"Изменения в портфеле:\n"
+        f"- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
+        f"- USD: было {old_usd_balance:.2f} → стало {usd_wallet.balance:.2f}\n"
+        f"Оценочная выручка: {revenue_usd:.2f} USD\n"
+    )
 
 
 def get_rate(frm: str, to: str) -> str:
