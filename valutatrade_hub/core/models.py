@@ -1,14 +1,7 @@
 import hashlib
 from datetime import datetime
 from copy import deepcopy
-
-
-EXCHANGE_RATES = {
-    "USD": 1.0,
-    "EUR": 1.1,
-    "BTC": 65000.0,
-    "ETH": 3500.0,
-}
+from constants import EXCHANGE_RATES
 
 class User:
     def __init__(self, user_id: int, username: str, password: str, salt: str = None, registration_date: datetime = None):
@@ -54,11 +47,13 @@ class User:
         return hashlib.sha256((password + self._salt).encode()).hexdigest()
 
     def get_user_info(self) -> dict:
-        """Возвращает публичную информацию о пользователе (без пароля)."""
+        """Возвращает информацию о пользователе."""
         return {
             "user_id": self._user_id,
             "username": self._username,
-            "registration_date": self._registration_date.isoformat()
+            "registration_date": self._registration_date.isoformat(),
+            "salt": self._salt,
+            "hashed_password": self._hashed_password,
         }
 
     def verify_password(self, password: str) -> bool:
