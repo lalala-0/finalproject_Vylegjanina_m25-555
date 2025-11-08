@@ -1,9 +1,11 @@
 import shlex
-from prompt import prompt
-from core import usecases
+from ..core import usecase
+import prompt
+from functools import wraps
+
 
 def print_help():
-    print (
+    print(
         "Доступные команды:\n"
         "  register --username <имя> --password <пароль>   — регистрация\n"
         "  login --username <имя> --password <пароль>      — вход\n"
@@ -14,19 +16,64 @@ def print_help():
         "  exit                                            — выход\n"
     )
 
+def get_arg(params, name, default=None):
+    """Вспомогательная функция для парсинга аргументов"""
+    if name in params:
+        index = params.index(name)
+        try:
+            value = params[index + 1]
+            if value.startswith("--"):
+                raise ValueError(f"Для параметра {name} нужно указать значение")
+            return value
+        except IndexError:
+            raise ValueError(f"Для параметра {name} нужно указать значение")
+    if default is not None:
+        return default
+    raise ValueError(f"Отсутствует обязательный параметр {name}")
+
+
+def cli_command(required_args=None, optional_args=None):
+    """
+    Декоратор для CLI-команд.
+    required_args: список обязательных аргументов (например ["--username", "--password"])
+    optional_args: словарь с параметрами по умолчанию, например {"--base": "USD"}
+    """
+    required_args = required_args or []
+    optional_args = optional_args or {}
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(params):
+            try:
+                parsed = {arg: get_arg(params, arg) for arg in required_args}
+
+                for arg, default in optional_args.items():
+                    parsed[arg] = get_arg(params, arg, default)
+
+                result = fn(**{k.lstrip('-'): v for k, v in parsed.items()})
+                print(result)
+
+            except ValueError as e:
+                print(f"Ошибка: {e}")
+            except Exception as e:
+                print(f"Неожиданная ошибка: {e}")
+
+        return wrapper
+    return decorator
+
 
 def cli():
     print_help()
 
     while True:
         try:
-            user_input = prompt("Введите команду: ").strip()
+            user_input = prompt.string("Введите команду: ")
         except (KeyboardInterrupt, EOFError):
             print("\nЗавершение работы.")
             break
 
         try:
-            args = shlex.split(user_input, posix=False) # pyright: ignore[reportArgumentType]
+            args = shlex.split(user_input, posix=False)
             cmd, *params = args
         except Exception as e:
             print(f"Некорректные параметры: {e}")
@@ -36,55 +83,40 @@ def cli():
             case "exit":
                 print("Выход из программы.")
                 break
-
             case "help":
                 print_help()
 
             case "register":
-                username = get_arg(params, "--username")
-                password = get_arg(params, "--password")
-                usecases.register(username, password)
-
+                @cli_command(required_args=["--username", "--password"])
+                def cmd_register(username, password):
+                    return usecase.register(username, password)
+                cmd_register(params)
             case "login":
-                username = get_arg(params, "--username")
-                password = get_arg(params, "--password")
-                usecases.login(username, password)
-
+                @cli_command(required_args=["--username", "--password"])
+                def cmd_login(username, password):
+                    return usecase.login(username, password)
+                cmd_login(params)
             case "show-portfolio":
-                base = get_arg(params, "--base", default="USD")
-                usecases.show_portfolio(base)
-
+                @cli_command(optional_args={"--base": "USD"})
+                def cmd_show_portfolio(base):
+                    return usecase.show_portfolio(base)
+                cmd_show_portfolio(params)
             case "buy":
-                currency = get_arg(params, "--currency")
-                amount = float(get_arg(params, "--amount"))
-                usecases.buy(currency, amount)
-
+                @cli_command(required_args=["--currency", "--amount"])
+                def cmd_buy(currency, amount):
+                    return usecase.buy(currency, float(amount))
+                cmd_buy(params)
             case "sell":
-                currency = get_arg(params, "--currency")
-                amount = float(get_arg(params, "--amount"))
-                usecases.sell(currency, amount)
-
+                @cli_command(required_args=["--currency", "--amount"])
+                def cmd_sell(currency, amount):
+                    return usecase.sell(currency, float(amount))
+                cmd_sell(params)
             case "get-rate":
-                from_currency = get_arg(params, "--from")
-                to_currency = get_arg(params, "--to")
-                usecases.get_rate(from_currency, to_currency)
-
+                @cli_command(required_args=["--from", "--to"])
+                def cmd_get_rate(**kwargs):
+                    return usecase.get_rate(kwargs["from"], kwargs["to"])
+                cmd_get_rate(params)
+                
             case _:
                 print(f"Неизвестная команда: {cmd}. Введите 'help' для списка доступных.")
 
-
-def get_arg(params, name, default=None):
-    """Вспомогательная функция для парсинга аргументов"""
-    if name in params:
-        index = params.index(name)
-        try:
-            return params[index + 1]
-        except IndexError:
-            raise ValueError(f"Для параметра {name} нужно указать значение")
-    if default is not None:
-        return default
-    raise ValueError(f"Отсутствует обязательный параметр {name}")
-
-
-if __name__ == "__main__":
-    cli()
