@@ -6,5 +6,6 @@ EXCHANGE_RATES = {
     "ETH": 3500.0,
 }
 
+RATES_FILE = "data/rates.json"
 USERS_FILE = "data/users.json"
 PORTFOLIOS_FILE = "data/portfolios.json"

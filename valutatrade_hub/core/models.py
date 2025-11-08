@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime
 from copy import deepcopy
-from constants import EXCHANGE_RATES
+from .utils import get_exchange_rate
 
 class User:
     def __init__(self, user_id: int, username: str, password: str, salt: str = None, registration_date: datetime = None):
@@ -146,16 +146,20 @@ class Portfolio:
     def get_total_value(self, base_currency: str = "USD") -> float:
         """Возвращает общую стоимость портфеля в выбранной базовой валюте."""
         base_currency = base_currency.upper()
-        if base_currency not in EXCHANGE_RATES:
-            raise ValueError(f"Нет курса для валюты {base_currency}")
 
-        total_value_usd = 0.0
+        total_value_base = 0.0
         for code, wallet in self._wallets.items():
-            rate = EXCHANGE_RATES.get(code)
-            if rate is None:
-                raise ValueError(f"Нет курса для валюты {code}")
-            total_value_usd += wallet.balance * rate
+            if code == base_currency:
+                total_value_base += wallet.balance
+            continue
 
-        return round(total_value_usd / EXCHANGE_RATES[base_currency], 2)
+        try:
+            rate, _ = get_exchange_rate(code, base_currency)
+        except ValueError:
+            raise ValueError(f"Нет курса для валют {code}→{base_currency}")
+
+        total_value_base += wallet.balance * rate
+
+        return round(total_value_base, 2)
 
 

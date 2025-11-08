@@ -1,6 +1,6 @@
-import utils as u
-from constants import USERS_FILE, PORTFOLIOS_FILE, EXCHANGE_RATES
-from models import User, Wallet, Portfolio
+from . import utils as u
+from .constants import USERS_FILE, PORTFOLIOS_FILE, EXCHANGE_RATES
+from .models import User, Wallet, Portfolio
 from datetime import datetime
 
 _current_user: User | None = None
@@ -9,7 +9,7 @@ _current_portfolio: Portfolio | None = None
 def register(username: str, password: str) -> str:
     """Создаёт нового пользователя и пустой портфель."""
     users_data = u.load_json(USERS_FILE)
-    if username in users_data:
+    if any(u["username"] == username for u in users_data):
         return f"Имя пользователя '{username}' уже занято"
     if len(password) < 4:
         return "Пароль должен быть не короче 4 символов"
@@ -78,11 +78,12 @@ def show_portfolio(base: str = "USD") -> str:
     total_value = 0.0
 
     for code, wallet in wallets.items():
-        if code not in EXCHANGE_RATES:
-            lines.append(f"- {code}: {wallet.balance:.4f} (нет курса)")
+        try:
+            rate, _ = u.get_exchange_rate(code, base)
+        except Exception:
+            lines.append(f"- {code}: {wallet.balance:.4f} (нет курса {code}→{base})")
             continue
-        usd_value = wallet.balance * EXCHANGE_RATES[code]
-        converted = usd_value / EXCHANGE_RATES[base]
+        converted = wallet.balance * rate
         total_value += converted
         lines.append(f"- {code}: {wallet.balance:.4f}  → {converted:.2f} {base}")
 
@@ -110,10 +111,12 @@ def buy(currency: str, amount: float) -> str:
 
     _save_portfolio()
 
-    if currency not in EXCHANGE_RATES:
-        return f"Не удалось получить курс для {currency}  → USD"
+    try:
+        rate, _ = u.get_exchange_rate(currency, "USD")
+    except Exception:
+        return f"Не удалось получить курс для {currency}→USD"
 
-    rate = EXCHANGE_RATES[currency]
+
     value_usd = amount * rate
     return (f"Покупка выполнена: {amount:.4f} {currency} по курсу {rate:.2f} USD/{currency}\n"
             f"Изменения в портфеле:\n- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
@@ -141,10 +144,11 @@ def sell(currency: str, amount: float) -> str:
 
     _save_portfolio()
 
-    if currency not in EXCHANGE_RATES:
+    try:
+        rate, _ = u.get_exchange_rate(currency, "USD")
+    except Exception:
         return f"Не удалось получить курс для {currency}→USD"
 
-    rate = EXCHANGE_RATES[currency]
     revenue_usd = amount * rate
     return (f"Продажа выполнена: {amount:.4f} {currency} по курсу {rate:.2f} USD/{currency}\n"
             f"Изменения в портфеле:\n- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
@@ -154,14 +158,17 @@ def sell(currency: str, amount: float) -> str:
 def get_rate(frm: str, to: str) -> str:
     """Возвращает текущий курс валют и обратный курс."""
     frm, to = frm.upper(), to.upper()
-    if frm not in EXCHANGE_RATES or to not in EXCHANGE_RATES:
+
+    try:
+        rate, updated = u.get_exchange_rate(frm, to)
+        inv = 1 / rate
+    except Exception:
         return f"Курс {frm}→{to} недоступен. Повторите попытку позже."
 
-    rate = EXCHANGE_RATES[to] / EXCHANGE_RATES[frm]
-    inv = 1 / rate
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    return f"Курс {frm}  → {to}: {rate:.6f} (обновлено: {ts})\nОбратный курс {to}  → {frm}: {inv:.6f}"
-
+    return (
+        f"Курс {frm} → {to}: {rate:.6f} (обновлено: {updated.strftime('%Y-%m-%d %H:%M:%S')})\n"
+        f"Обратный курс {to} → {frm}: {inv:.6f}"
+    )
 
 def _save_portfolio():
     """Сохраняет портфель текущего пользователя."""
