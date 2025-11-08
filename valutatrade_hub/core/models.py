@@ -1,14 +1,7 @@
 import hashlib
 from datetime import datetime
 from copy import deepcopy
-
-
-EXCHANGE_RATES = {
-    "USD": 1.0,
-    "EUR": 1.1,
-    "BTC": 65000.0,
-    "ETH": 3500.0,
-}
+from .utils import get_exchange_rate
 
 class User:
     def __init__(self, user_id: int, username: str, password: str, salt: str = None, registration_date: datetime = None):
@@ -54,11 +47,13 @@ class User:
         return hashlib.sha256((password + self._salt).encode()).hexdigest()
 
     def get_user_info(self) -> dict:
-        """Возвращает публичную информацию о пользователе (без пароля)."""
+        """Возвращает информацию о пользователе."""
         return {
             "user_id": self._user_id,
             "username": self._username,
-            "registration_date": self._registration_date.isoformat()
+            "registration_date": self._registration_date.isoformat(),
+            "salt": self._salt,
+            "hashed_password": self._hashed_password,
         }
 
     def verify_password(self, password: str) -> bool:
@@ -111,6 +106,7 @@ class Wallet:
             raise ValueError("Сумма снятия должна быть положительной")
         if amount > self._balance:
             raise ValueError("Недостаточно средств на балансе")
+        self._balance -= float(amount)
 
 
 class Portfolio:
@@ -151,16 +147,20 @@ class Portfolio:
     def get_total_value(self, base_currency: str = "USD") -> float:
         """Возвращает общую стоимость портфеля в выбранной базовой валюте."""
         base_currency = base_currency.upper()
-        if base_currency not in EXCHANGE_RATES:
-            raise ValueError(f"Нет курса для валюты {base_currency}")
 
-        total_value_usd = 0.0
+        total_value_base = 0.0
         for code, wallet in self._wallets.items():
-            rate = EXCHANGE_RATES.get(code)
-            if rate is None:
-                raise ValueError(f"Нет курса для валюты {code}")
-            total_value_usd += wallet.balance * rate
+            if code == base_currency:
+                total_value_base += wallet.balance
+            continue
 
-        return round(total_value_usd / EXCHANGE_RATES[base_currency], 2)
+        try:
+            rate, _ = get_exchange_rate(code, base_currency)
+        except ValueError:
+            raise ValueError(f"Нет курса для валют {code}→{base_currency}")
+
+        total_value_base += wallet.balance * rate
+
+        return round(total_value_base, 2)
 
 

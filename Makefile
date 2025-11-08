@@ -2,10 +2,10 @@ install:
 	poetry install
 
 project:
-	poetry run database
+	poetry run project
 
 run:
-	poetry run database
+	poetry run project
  
 build:
 	poetry build
