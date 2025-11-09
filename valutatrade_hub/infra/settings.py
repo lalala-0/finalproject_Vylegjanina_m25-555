@@ -22,6 +22,11 @@ class SettingsLoader:
         self._initialized = True
 
     def get(self, key: str, default: Any = None) -> Any:
+        """
+        Возвращает значение конфигурации по ключу.
+        Если ключ не найден, возвращает default.
+        Пример: settings.get("RATES_FILE") -> 'data/rates.json'
+        """
         return self._data.get(key, default)
 
     def reload(self):

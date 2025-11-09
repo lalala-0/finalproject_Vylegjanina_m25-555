@@ -1,4 +1,3 @@
-# currencies.py
 from abc import ABC, abstractmethod
 from typing import Dict
 from .exceptions import CurrencyNotFoundError
@@ -61,6 +60,6 @@ def get_currency(code: str) -> Currency:
     """Возвращает объект Currency по коду, если он известен."""
     code = code.upper()
     if code not in _CURRENCY_REGISTRY:
-        raise CurrencyNotFoundError(f"Неизвестная валюта: '{code}'")
+        raise CurrencyNotFoundError(code)
     return _CURRENCY_REGISTRY[code]
 
