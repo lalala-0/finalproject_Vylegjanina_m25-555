@@ -1,7 +1,7 @@
 import json
 import os
-from .constants import RATES_FILE
 from datetime import datetime
+from valutatrade_hub.infra.settings import SettingsLoader
 
 def load_json(path: str):
     if not os.path.exists(path):
@@ -26,7 +26,7 @@ def get_exchange_rate(from_currency: str, to_currency: str) -> tuple[float, date
     """
     if from_currency == to_currency:
         return 1.0, datetime.now()
-    rates_data = load_json(RATES_FILE)
+    rates_data = load_json(SettingsLoader().get("RATES_FILE"))
     if not rates_data:
         raise ValueError("Файл с курсами пуст или не найден")
 
