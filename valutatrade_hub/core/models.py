@@ -3,7 +3,8 @@ from datetime import datetime
 from copy import deepcopy
 
 from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InsufficientFundsError
-from .utils import get_exchange_rate
+from valutatrade_hub.infra.settings import SettingsLoader
+from .utils import get_exchange_rate, load_json, save_json
 
 class User:
     def __init__(self, user_id: int, username: str, password: str, salt: str = None, registration_date: datetime = None):
@@ -164,5 +165,36 @@ class Portfolio:
         total_value_base += wallet.balance * rate
 
         return round(total_value_base, 2)
+
+    @staticmethod
+    def load_portfolio(user_id: int) -> 'Portfolio':
+        """Загружает портфель пользователя или создаёт новый."""
+        portfolios = load_json(SettingsLoader().get("PORTFOLIOS_FILE"))
+
+        data = next((d_ for d_ in portfolios if d_["user_id"] == user_id), None)
+
+        if not data:
+            return Portfolio(user_id, wallets={})
+        
+        wallets = {
+            code: Wallet(currency_code=code, balance=float(info.get("balance", 0.0)))
+            for code, info in data.get("wallets", {}).items()
+        }
+        return Portfolio(user_id, wallets=wallets)
+    
+    
+    def save_portfolio(self):
+        """Сохраняет портфель текущего пользователя."""
+        portfolios = load_json(SettingsLoader().get("PORTFOLIOS_FILE"))
+        for p in portfolios:
+            if p["user_id"] == self.user_id:
+                p["wallets"] = {code: {"balance": w.balance} for code, w in self._wallets.items()}
+                break
+        else:
+            portfolios.append({
+                "user_id": self.user_id,
+                "wallets": {code: {"balance": w.balance} for code, w in self._wallets.items()}
+            })
+        save_json(SettingsLoader().get("PORTFOLIOS_FILE"), portfolios)
 
 

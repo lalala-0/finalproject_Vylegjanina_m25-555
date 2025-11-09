@@ -30,7 +30,7 @@ def register(username: str, password: str) -> str:
     portfolios = u.load_json(portfolios_file)
     portfolios.append({
         "user_id": user_id,
-        "wallets": {"USD": {"balance": 0.0}},
+        "wallets": {f"{SettingsLoader().get('BASE_CURRENCY')}": {"balance": 0.0}},
     })
     u.save_json(portfolios_file, portfolios)
 
@@ -60,12 +60,7 @@ def login(username: str, password: str) -> str:
             raise ValueError("Неверный пароль")
 
     _current_user = user
-
-    portfolios_data = u.load_json(SettingsLoader().get("PORTFOLIOS_FILE")) 
-    portfolio_entry = next((p for p in portfolios_data if p["user_id"] == user.user_id), None) 
-    wallets_raw = portfolio_entry["wallets"] if portfolio_entry else {} 
-    wallets = {code: Wallet(code, w["balance"]) for code, w in wallets_raw.items()} 
-    _current_portfolio = Portfolio(user.user_id, wallets)
+    _current_portfolio = Portfolio.load_portfolio(user.user_id)
 
     return f"Вы вошли как '{username}'"
 
@@ -106,7 +101,7 @@ def show_portfolio(base: str = "USD") -> str:
 @log_action("BUY", verbose=True)
 def buy(currency: str, amount: float) -> str:
     """Купить валюту и увеличить баланс кошелька."""
-    if _current_user is None or _current_portfolio is None:
+    if _current_portfolio is None or _current_user is None:
         raise ValueError("Сначала выполните login")
     if amount <= 0:
         raise ValueError("'amount' должен быть положительным числом")
@@ -117,75 +112,75 @@ def buy(currency: str, amount: float) -> str:
     except CurrencyNotFoundError:
         raise
 
-    wallets = _current_portfolio._wallets
-    if currency not in wallets:
-        wallets[currency] = Wallet(currency, 0.0)
+    try:
+        wallet = _current_portfolio.get_wallet(currency)
+    except CurrencyNotFoundError:
+        wallet = _current_portfolio.add_currency(currency)
 
-    wallet = wallets[currency]
     old_balance = wallet.balance
     wallet.deposit(amount)
-
-    _save_portfolio()
+    _current_portfolio.save_portfolio()
 
     try:
-        rate, _ = u.get_exchange_rate(currency, "USD")
+        rate, _ = u.get_exchange_rate(currency, SettingsLoader().get("BASE_CURRENCY"))
     except Exception as e:
         raise ApiRequestError(str(e))
-
-
     value_usd = amount * rate
-    return (f"Покупка выполнена: {amount:.4f} {currency} по курсу {rate:.2f} USD/{currency}\n"
+    return (f"Покупка выполнена: {amount:.4f} {currency} по курсу {rate:.2f} {SettingsLoader().get("BASE_CURRENCY")}/{currency}\n"
             f"Изменения в портфеле:\n- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
-            f"Оценочная стоимость покупки: {value_usd:.2f} USD")
+            f"Оценочная стоимость покупки: {value_usd:.2f} {SettingsLoader().get("BASE_CURRENCY")}")
 
 
 @log_action("SELL", verbose=True)
 def sell(currency: str, amount: float) -> str:
-    """Продать валюту: уменьшить баланс и начислить выручку в USD."""
+    """Продать валюту: уменьшить баланс и начислить выручку в базовой валюте (USD)."""
     if _current_user is None or _current_portfolio is None:
         raise ValueError("Сначала выполните login")
     if amount <= 0:
         raise ValueError("'amount' должен быть положительным числом")
 
-    currency = currency.upper()
-    wallets = _current_portfolio._wallets
-    if currency not in wallets:
-        raise CurrencyNotFoundError(currency)
+    try:
+        wallet = _current_portfolio.get_wallet(currency.upper())
+    except CurrencyNotFoundError:
+        raise InsufficientFundsError(0.0, amount, currency)
 
-    wallet = wallets[currency]
     old_balance = wallet.balance
     try:
         wallet.withdraw(amount)
     except ValueError:
         raise InsufficientFundsError(wallet.balance, amount, currency)
 
-    if currency == "USD":
-        _save_portfolio()
+    base_currency = SettingsLoader().get("BASE_CURRENCY")
+    if currency == base_currency:
+        _current_portfolio.save_portfolio()
         return (
-            f"Продажа выполнена: {amount:.2f} USD\n"
+            f"Продажа выполнена: {amount:.2f} {base_currency}\n"
             f"Изменения в портфеле:\n"
-            f"- USD: было {old_balance:.2f} → стало {wallet.balance:.2f}\n"
-            f"Примечание: продажа базовой валюты (USD) не конвертируется."
+            f"- {base_currency}: было {old_balance:.2f} → стало {wallet.balance:.2f}\n"
+            f"Примечание: продажа базовой валюты ({base_currency}) не конвертируется."
         )
 
     try:
-        rate, _ = u.get_exchange_rate(currency, "USD")
+        rate, _ = u.get_exchange_rate(currency, base_currency)
     except Exception as e:
-        _save_portfolio()
+        _current_portfolio.save_portfolio()
         raise ApiRequestError(str(e))
 
     revenue_usd = amount * rate
-    usd_wallet = _current_portfolio.get_wallet("USD") if "USD" in _current_portfolio._wallets else _current_portfolio.add_wallet("USD", 0.0)
+    try:
+        usd_wallet = _current_portfolio.get_wallet(base_currency)
+    except CurrencyNotFoundError:
+        usd_wallet = _current_portfolio.add_currency(base_currency)
     old_usd_balance = usd_wallet.balance
     usd_wallet.deposit(revenue_usd)
-    _save_portfolio()
+    _current_portfolio.save_portfolio()
 
     return (
-        f"Продажа выполнена: {amount:.4f} {currency} по курсу {rate:.2f} USD/{currency}\n"
+        f"Продажа выполнена: {amount:.4f} {currency} по курсу {rate:.2f} {base_currency}/{currency}\n"
         f"Изменения в портфеле:\n"
         f"- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
-        f"- USD: было {old_usd_balance:.2f} → стало {usd_wallet.balance:.2f}\n"
-        f"Оценочная выручка: {revenue_usd:.2f} USD\n"
+        f"- {base_currency}: было {old_usd_balance:.2f} → стало {usd_wallet.balance:.2f}\n"
+        f"Оценочная выручка: {revenue_usd:.2f} {base_currency}\n"
     )
 
 
@@ -209,17 +204,3 @@ def get_rate(frm: str, to: str) -> str:
         f"Курс {frm} → {to}: {rate:.6f} (обновлено: {updated.strftime('%Y-%m-%d %H:%M:%S')})\n"
         f"Обратный курс {to} → {frm}: {inv:.6f}"
     )
-
-def _save_portfolio():
-    """Сохраняет портфель текущего пользователя."""
-    portfolios = u.load_json(SettingsLoader().get("PORTFOLIOS_FILE"))
-    for p in portfolios:
-        if p["user_id"] == _current_portfolio.user_id:
-            p["wallets"] = {code: {"balance": w.balance} for code, w in _current_portfolio._wallets.items()}
-            break
-    else:
-        portfolios.append({
-            "user_id": _current_portfolio.user_id,
-            "wallets": {code: {"balance": w.balance} for code, w in _current_portfolio._wallets.items()}
-        })
-    u.save_json(SettingsLoader().get("PORTFOLIOS_FILE"), portfolios)

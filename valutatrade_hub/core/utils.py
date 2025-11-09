@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from valutatrade_hub.infra.settings import SettingsLoader
 
+
 def load_json(path: str):
     if not os.path.exists(path):
         return []
@@ -46,3 +47,4 @@ def get_exchange_rate(from_currency: str, to_currency: str) -> tuple[float, date
         return reverse_rate, datetime.fromisoformat(entry["updated_at"])
 
     raise ValueError(f"Курс {from_currency}→{to_currency} не найден")
+
