@@ -86,8 +86,11 @@ def show_portfolio(base: str = "USD") -> str:
     for code, wallet in wallets.items():
         try:
             rate, _ = u.get_exchange_rate(code, base)
-        except Exception:
+        except CurrencyNotFoundError:
             lines.append(f"- {code}: {wallet.balance:.4f} (нет курса {code}→{base})")
+            continue
+        except ApiRequestError as e:
+            lines.append(f"- {code}: {wallet.balance:.4f} (ошибка API: {e})")
             continue
         converted = wallet.balance * rate
         total_value += converted
@@ -123,8 +126,9 @@ def buy(currency: str, amount: float) -> str:
 
     try:
         rate, _ = u.get_exchange_rate(currency, SettingsLoader().get("BASE_CURRENCY"))
-    except Exception as e:
-        raise ApiRequestError(str(e))
+    except CurrencyNotFoundError or ApiRequestError:
+        raise
+
     value_usd = amount * rate
     return (f"Покупка выполнена: {amount:.4f} {currency} по курсу {rate:.2f} {SettingsLoader().get("BASE_CURRENCY")}/{currency}\n"
             f"Изменения в портфеле:\n- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
@@ -162,10 +166,14 @@ def sell(currency: str, amount: float) -> str:
 
     try:
         rate, _ = u.get_exchange_rate(currency, base_currency)
-    except Exception as e:
+    except (CurrencyNotFoundError, ApiRequestError) as e:
         _current_portfolio.save_portfolio()
-        raise ApiRequestError(str(e))
-
+        return (
+            f"Продажа частично выполнена: {amount:.4f} {currency} списано.\n"
+            f"Ошибка конверсии в {base_currency}: {e.__class__.__name__} ({e})\n"
+            f"Средства в {base_currency} не начислены, повторите позже."
+        )
+    
     revenue_usd = amount * rate
     try:
         usd_wallet = _current_portfolio.get_wallet(base_currency)
