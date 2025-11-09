@@ -1,4 +1,3 @@
-# currencies.py
 from abc import ABC, abstractmethod
 from typing import Dict
 from .exceptions import CurrencyNotFoundError
