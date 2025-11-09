@@ -1,7 +1,7 @@
 from valutatrade_hub.core.currancies import get_currency
 from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundError, InsufficientFundsError
+from valutatrade_hub.infra.settings import SettingsLoader
 from . import utils as u
-from .constants import USERS_FILE, PORTFOLIOS_FILE, RATES_FILE
 from .models import User, Wallet, Portfolio
 from datetime import datetime
 
@@ -10,7 +10,7 @@ _current_portfolio: Portfolio | None = None
 
 def register(username: str, password: str) -> str:
     """Создаёт нового пользователя и пустой портфель."""
-    users_data = u.load_json(USERS_FILE)
+    users_data = u.load_json(SettingsLoader().get("USERS_FILE"))
     if any(u["username"] == username for u in users_data):
         return f"Имя пользователя '{username}' уже занято"
     if len(password) < 4:
@@ -19,14 +19,14 @@ def register(username: str, password: str) -> str:
     user_id = u.next_id(users_data)
     user = User(user_id=user_id, username=username, password=password)
     users_data.append(user.get_user_info())
-    u.save_json(USERS_FILE, users_data)
+    u.save_json(SettingsLoader().get("USERS_FILE"), users_data)
 
-    portfolios = u.load_json(PORTFOLIOS_FILE)
+    portfolios = u.load_json(SettingsLoader().get("PORTFOLIOS_FILE"))
     portfolios.append({
         "user_id": user_id,
         "wallets": {"USD": {"balance": 0.0}}
     })
-    u.save_json(PORTFOLIOS_FILE, portfolios)
+    u.save_json(SettingsLoader().get("PORTFOLIOS_FILE"), portfolios)
 
     return f"Пользователь '{username}' зарегистрирован (id={user_id}). Войдите: login --username {username} --password ****"
 
@@ -35,7 +35,7 @@ def login(username: str, password: str) -> str:
     """Вход пользователя и загрузка его портфеля."""
     global _current_user, _current_portfolio
 
-    users_data = u.load_json(USERS_FILE)
+    users_data = u.load_json(SettingsLoader().get("USERS_FILE"))
     user_entry = next((u_ for u_ in users_data if u_["username"] == username), None)
     if not user_entry:
         return f"Пользователь '{username}' не найден"
@@ -54,7 +54,7 @@ def login(username: str, password: str) -> str:
 
     _current_user = user
 
-    portfolios_data = u.load_json(PORTFOLIOS_FILE) 
+    portfolios_data = u.load_json(SettingsLoader().get("PORTFOLIOS_FILE")) 
     portfolio_entry = next((p for p in portfolios_data if p["user_id"] == user.user_id), None) 
     wallets_raw = portfolio_entry["wallets"] if portfolio_entry else {} 
     wallets = {code: Wallet(code, w["balance"]) for code, w in wallets_raw.items()} 
@@ -69,7 +69,7 @@ def show_portfolio(base: str = "USD") -> str:
         raise ValueError("Сначала выполните login")
 
     base = base.upper()
-    rates = u.load_json(RATES_FILE)
+    rates = u.load_json(SettingsLoader().get("RATES_FILE"))
     base_found = any(base in key.split("_") for key in rates.keys() if "_" in key)
     if not base_found:
         raise CurrencyNotFoundError(base)
@@ -203,7 +203,7 @@ def get_rate(frm: str, to: str) -> str:
 
 def _save_portfolio():
     """Сохраняет портфель текущего пользователя."""
-    portfolios = u.load_json(PORTFOLIOS_FILE)
+    portfolios = u.load_json(SettingsLoader().get("PORTFOLIOS_FILE"))
     for p in portfolios:
         if p["user_id"] == _current_portfolio.user_id:
             p["wallets"] = {code: {"balance": w.balance} for code, w in _current_portfolio._wallets.items()}
@@ -213,4 +213,4 @@ def _save_portfolio():
             "user_id": _current_portfolio.user_id,
             "wallets": {code: {"balance": w.balance} for code, w in _current_portfolio._wallets.items()}
         })
-    u.save_json(PORTFOLIOS_FILE, portfolios)
+    u.save_json(SettingsLoader().get("PORTFOLIOS_FILE"), portfolios)
