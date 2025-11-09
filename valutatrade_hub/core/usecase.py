@@ -1,5 +1,6 @@
 from valutatrade_hub.core.currancies import get_currency
 from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundError, InsufficientFundsError
+from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.settings import SettingsLoader
 from . import utils as u
 from .models import User, Wallet, Portfolio
@@ -8,29 +9,35 @@ from datetime import datetime
 _current_user: User | None = None
 _current_portfolio: Portfolio | None = None
 
+@log_action("REGISTER")
 def register(username: str, password: str) -> str:
     """Создаёт нового пользователя и пустой портфель."""
-    users_data = u.load_json(SettingsLoader().get("USERS_FILE"))
+    users_file = SettingsLoader().get("USERS_FILE")
+    users_data = u.load_json(users_file)
+
     if any(u["username"] == username for u in users_data):
-        return f"Имя пользователя '{username}' уже занято"
+        raise ValueError(f"Имя пользователя '{username}' уже занято")
+
     if len(password) < 4:
-        return "Пароль должен быть не короче 4 символов"
+        raise ValueError("Пароль должен быть не короче 4 символов")
 
     user_id = u.next_id(users_data)
     user = User(user_id=user_id, username=username, password=password)
     users_data.append(user.get_user_info())
-    u.save_json(SettingsLoader().get("USERS_FILE"), users_data)
+    u.save_json(users_file, users_data)
 
-    portfolios = u.load_json(SettingsLoader().get("PORTFOLIOS_FILE"))
+    portfolios_file = SettingsLoader().get("PORTFOLIOS_FILE")
+    portfolios = u.load_json(portfolios_file)
     portfolios.append({
         "user_id": user_id,
-        "wallets": {"USD": {"balance": 0.0}}
+        "wallets": {"USD": {"balance": 0.0}},
     })
-    u.save_json(SettingsLoader().get("PORTFOLIOS_FILE"), portfolios)
+    u.save_json(portfolios_file, portfolios)
 
     return f"Пользователь '{username}' зарегистрирован (id={user_id}). Войдите: login --username {username} --password ****"
 
 
+@log_action("LOGIN")
 def login(username: str, password: str) -> str:
     """Вход пользователя и загрузка его портфеля."""
     global _current_user, _current_portfolio
@@ -38,7 +45,7 @@ def login(username: str, password: str) -> str:
     users_data = u.load_json(SettingsLoader().get("USERS_FILE"))
     user_entry = next((u_ for u_ in users_data if u_["username"] == username), None)
     if not user_entry:
-        return f"Пользователь '{username}' не найден"
+        raise ValueError(f"Пользователь '{username}' не найден")
 
     user = User(
         user_id=user_entry["user_id"],
@@ -50,7 +57,7 @@ def login(username: str, password: str) -> str:
 
     if not user.verify_password(password):
         if user.hashed_password != user_entry["hashed_password"]:
-            return "Неверный пароль"
+            raise ValueError("Неверный пароль")
 
     _current_user = user
 
@@ -96,6 +103,7 @@ def show_portfolio(base: str = "USD") -> str:
     return "\n".join(lines)
 
 
+@log_action("BUY", verbose=True)
 def buy(currency: str, amount: float) -> str:
     """Купить валюту и увеличить баланс кошелька."""
     if _current_user is None or _current_portfolio is None:
@@ -131,6 +139,7 @@ def buy(currency: str, amount: float) -> str:
             f"Оценочная стоимость покупки: {value_usd:.2f} USD")
 
 
+@log_action("SELL", verbose=True)
 def sell(currency: str, amount: float) -> str:
     """Продать валюту: уменьшить баланс и начислить выручку в USD."""
     if _current_user is None or _current_portfolio is None:
