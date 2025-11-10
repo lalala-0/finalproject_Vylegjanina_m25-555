@@ -3,12 +3,7 @@ from typing import List
 from valutatrade_hub.core.exceptions import ApiRequestError
 from valutatrade_hub.parser_service.api_clients import BaseApiClient
 from valutatrade_hub.parser_service.storage import RatesStorage
-from valutatrade_hub.infra.settings import SettingsLoader
-import logging
-
-settings = SettingsLoader()
-logger = logging.getLogger("valutatrade.actions")
-
+from valutatrade_hub.logging_config import logger
 
 class RatesUpdater:
     """
