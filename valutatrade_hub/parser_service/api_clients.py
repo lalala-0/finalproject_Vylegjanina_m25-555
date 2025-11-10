@@ -5,6 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Dict
 from valutatrade_hub.core.exceptions import ApiRequestError
+from valutatrade_hub.decorators import log_api_call
 from valutatrade_hub.parser_service.config import ParserConfig
 
 
@@ -46,6 +47,7 @@ class BaseApiClient(ABC):
 class CoinGeckoClient(BaseApiClient):
     """Клиент для получения криптовалютных курсов с CoinGecko."""
 
+    @log_api_call("CoinGecko")
     def fetch_rates(self) -> Dict[str, float]:
         crypto_map = self.config.get("CRYPTO_ID_MAP")
         cryptos = self.config.get("CRYPTO_CURRENCIES")
@@ -61,11 +63,11 @@ class CoinGeckoClient(BaseApiClient):
         try:
             response = requests.get(url, timeout=timeout)
         except requests.exceptions.Timeout:
-            raise ApiRequestError("CoinGecko: превышено время ожидания ответа")
+            raise ApiRequestError("Превышено время ожидания ответа")
         except requests.exceptions.ConnectionError:
-            raise ApiRequestError("CoinGecko: ошибка соединения (проверьте интернет или URL)")
+            raise ApiRequestError("Ошибка соединения (проверьте интернет или URL)")
         except requests.exceptions.RequestException as e:
-            raise ApiRequestError(f"CoinGecko: сбой при запросе: {e}")
+            raise ApiRequestError(f"Сбой при запросе: {e}")
 
         if not response.ok:
             self.handle_http_error(response, "CoinGecko")
@@ -73,7 +75,7 @@ class CoinGeckoClient(BaseApiClient):
         try:
             data = response.json()
         except ValueError:
-            raise ApiRequestError("CoinGecko: некорректный JSON-ответ")
+            raise ApiRequestError("Некорректный JSON-ответ")
         
         rates = {}
         for symbol, coin_id in crypto_map.items():
@@ -92,6 +94,7 @@ class CoinGeckoClient(BaseApiClient):
 class ExchangeRateApiClient(BaseApiClient):
     """Клиент для получения фиатных курсов с ExchangeRate-API."""
 
+    @log_api_call("CoinGecko")
     def fetch_rates(self) -> Dict[str, float]:
         api_key = self.config.get("EXCHANGERATE_API_KEY")
         if not api_key:
@@ -108,24 +111,19 @@ class ExchangeRateApiClient(BaseApiClient):
         try:
             response = requests.get(url, timeout=timeout)
         except requests.exceptions.Timeout:
-            raise ApiRequestError("ExchangeRate-API: превышено время ожидания ответа")
+            raise ApiRequestError("Превышено время ожидания ответа")
         except requests.exceptions.ConnectionError:
-            raise ApiRequestError("ExchangeRate-API: ошибка соединения (проверьте интернет или URL)")
+            raise ApiRequestError("Ошибка соединения (проверьте интернет или URL)")
         except requests.exceptions.RequestException as e:
-            raise ApiRequestError(f"ExchangeRate-API: сбой при запросе: {e}")
+            raise ApiRequestError(f"Сбой при запросе: {e}")
 
         if not response.ok:
             self.handle_http_error(response, "ExchangeRate-API")
 
         try:
             data = response.json()
-        except requests.exceptions.RequestException as e:
-            raise ApiRequestError(f"Ошибка запроса к ExchangeRate-API: {e}")
-
-        if data.get("result") != "success":
-            raise ApiRequestError(
-                f"ExchangeRate-API вернул ошибку: {data.get('error-type', 'unknown')}"
-            )
+        except ValueError:
+            raise ApiRequestError("Некорректный JSON-ответ")
 
         rates = {}
         for code in fiat_currencies:
