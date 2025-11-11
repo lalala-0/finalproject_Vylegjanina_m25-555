@@ -4,7 +4,9 @@ from copy import deepcopy
 
 from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InsufficientFundsError
 from valutatrade_hub.infra.settings import SettingsLoader
-from .utils import get_exchange_rate, load_json, save_json
+from valutatrade_hub.parser_service.use_case import get_exchange_rate
+from .utils import load_json, save_json
+
 
 class User:
     def __init__(self, user_id: int, username: str, password: str, salt: str = None, registration_date: datetime = None):

@@ -94,7 +94,7 @@ class CoinGeckoClient(BaseApiClient):
 class ExchangeRateApiClient(BaseApiClient):
     """Клиент для получения фиатных курсов с ExchangeRate-API."""
 
-    @log_api_call("CoinGecko")
+    @log_api_call("ExchangeRate-API")
     def fetch_rates(self) -> Dict[str, float]:
         api_key = self.config.get("EXCHANGERATE_API_KEY")
         if not api_key:
@@ -126,10 +126,12 @@ class ExchangeRateApiClient(BaseApiClient):
             raise ApiRequestError("Некорректный JSON-ответ")
 
         rates = {}
+        conversion_rates = data.get("conversion_rates", {})
         for code in fiat_currencies:
-            if code in data.get("rates", {}):
+            if code in conversion_rates:
                 pair_key = f"{code}_{base}"
-                rates[pair_key] = data["rates"][code]
+                rates[pair_key] = conversion_rates[code]
+
 
         elapsed = round((time.time() - start) * 1000, 2)
         print(f"[ExchangeRate-API] Получено {len(rates)} курсов за {elapsed} мс")

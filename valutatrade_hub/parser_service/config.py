@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +44,12 @@ class ParserConfig:
         """
         Возвращает значение конфигурации по ключу.
         Если ключ не найден, возвращает default или значение по умолчанию.
+        Для EXCHANGERATE_API_KEY - берётся из переменной окружения, если есть.
         """
+        if key == "EXCHANGERATE_API_KEY":
+            env_value = os.getenv("EXCHANGERATE_API_KEY")
+            if env_value is not None:
+                return env_value
         return self._data.get(key, self.DEFAULTS.get(key, default))
 
     def reload(self):

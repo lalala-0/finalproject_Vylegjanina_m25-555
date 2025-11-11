@@ -3,8 +3,9 @@ from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundErr
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.settings import SettingsLoader
 from . import utils as u
-from .models import User, Wallet, Portfolio
+from .models import User, Portfolio
 from datetime import datetime
+from valutatrade_hub.parser_service.use_case import get_exchange_rate
 
 _current_user: User | None = None
 _current_portfolio: Portfolio | None = None
@@ -85,7 +86,7 @@ def show_portfolio(base: str = "USD") -> str:
 
     for code, wallet in wallets.items():
         try:
-            rate, _ = u.get_exchange_rate(code, base)
+            rate, _ = get_exchange_rate(code, base)
         except CurrencyNotFoundError:
             lines.append(f"- {code}: {wallet.balance:.4f} (нет курса {code}→{base})")
             continue
@@ -125,7 +126,7 @@ def buy(currency: str, amount: float) -> str:
     _current_portfolio.save_portfolio()
 
     try:
-        rate, _ = u.get_exchange_rate(currency, SettingsLoader().get("BASE_CURRENCY"))
+        rate, _ = get_exchange_rate(currency, SettingsLoader().get("BASE_CURRENCY"))
     except CurrencyNotFoundError or ApiRequestError:
         raise
 
@@ -165,7 +166,7 @@ def sell(currency: str, amount: float) -> str:
         )
 
     try:
-        rate, _ = u.get_exchange_rate(currency, base_currency)
+        rate, _ = get_exchange_rate(currency, base_currency)
     except (CurrencyNotFoundError, ApiRequestError) as e:
         _current_portfolio.save_portfolio()
         return (
@@ -203,7 +204,7 @@ def get_rate(frm: str, to: str) -> str:
         raise
 
     try:
-        rate, updated = u.get_exchange_rate(frm, to)
+        rate, updated = get_exchange_rate(frm, to)
         inv = 1 / rate
     except Exception as e:
         raise ApiRequestError(str(e))

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 from valutatrade_hub.infra.settings import SettingsLoader
 
@@ -34,7 +34,7 @@ class RatesStorage:
                 except json.JSONDecodeError:
                     history = []
 
-        now_iso = datetime.now().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         for pair, data in rates.items():
             if pair in ("source", "last_refresh"):
                 continue

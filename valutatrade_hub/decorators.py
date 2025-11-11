@@ -1,7 +1,7 @@
 import functools
 from datetime import datetime
 import inspect
-from time import time
+import time as time
 from valutatrade_hub.logging_config import logger
 
 def log_action(action: str, verbose: bool = False):
