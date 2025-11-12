@@ -59,7 +59,6 @@ class CoinGeckoClient(BaseApiClient):
         vs = base.lower()
         url = f"{url}?ids={ids}&vs_currencies={vs}"
 
-        start = time.time()
         try:
             response = requests.get(url, timeout=timeout)
         except requests.exceptions.Timeout:
@@ -85,9 +84,6 @@ class CoinGeckoClient(BaseApiClient):
                 rates[pair_key] = rate
             except KeyError:
                 continue
-
-        elapsed = round((time.time() - start) * 1000, 2)
-        print(f"[CoinGecko] Получено {len(rates)} курсов за {elapsed} мс")
         return rates
 
 
@@ -107,7 +103,6 @@ class ExchangeRateApiClient(BaseApiClient):
 
         url = f"{base_url}/{api_key}/latest/{base}"
 
-        start = time.time()
         try:
             response = requests.get(url, timeout=timeout)
         except requests.exceptions.Timeout:
@@ -133,6 +128,4 @@ class ExchangeRateApiClient(BaseApiClient):
                 rates[pair_key] = conversion_rates[code]
 
 
-        elapsed = round((time.time() - start) * 1000, 2)
-        print(f"[ExchangeRate-API] Получено {len(rates)} курсов за {elapsed} мс")
         return rates

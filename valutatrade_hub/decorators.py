@@ -61,10 +61,12 @@ def log_api_call(source_name: str):
                 result = func(*args, **kwargs)
                 elapsed = round((time.time() - start_time) * 1000, 2)
                 logger.info(f"[{source_name}] Успех: получено {len(result)} курсов за {elapsed} мс")
+                print(f"[{source_name}] Получено {len(result)} курсов за {elapsed} мс")
                 return result
             except Exception as e:
                 elapsed = round((time.time() - start_time) * 1000, 2)
                 logger.error(f"[{source_name}] Ошибка после {elapsed} мс: {e}", exc_info=True)
+                print(f"[{source_name}] Ошибка после {elapsed} мс: {e}")
                 raise
         return wrapper
     return decorator

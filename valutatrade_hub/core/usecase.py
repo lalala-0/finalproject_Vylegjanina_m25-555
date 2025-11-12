@@ -5,7 +5,7 @@ from valutatrade_hub.infra.settings import SettingsLoader
 from . import utils as u
 from .models import User, Portfolio
 from datetime import datetime
-from valutatrade_hub.parser_service.use_case import get_exchange_rate
+from valutatrade_hub.parser_service.usecase import get_exchange_rate
 
 _current_user: User | None = None
 _current_portfolio: Portfolio | None = None

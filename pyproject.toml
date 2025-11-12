@@ -15,6 +15,7 @@ project = "main:main"
 python = "^3.12"
 prompt = "^0.4.1"
 requests = "^2.32.5"
+prettytable = "^3.16.0"
 
 
 [tool.poetry.group.dev.dependencies]
