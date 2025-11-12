@@ -125,7 +125,7 @@ class ExchangeRateApiClient(BaseApiClient):
         for code in fiat_currencies:
             if code in conversion_rates:
                 pair_key = f"{code}_{base}"
-                rates[pair_key] = conversion_rates[code]
+                rates[pair_key] = 1 / conversion_rates[code]
 
 
         return rates

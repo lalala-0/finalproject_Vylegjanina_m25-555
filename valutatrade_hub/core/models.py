@@ -124,7 +124,6 @@ class Portfolio:
 
     @property
     def user_id(self) -> int:
-        #TODO: должен возвращать "объект пользователя (без возможности перезаписи)."
         return self._user_id
 
     @property

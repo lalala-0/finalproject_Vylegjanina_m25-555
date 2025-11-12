@@ -110,11 +110,26 @@ def buy(currency: str, amount: float) -> str:
     if amount <= 0:
         raise ValueError("'amount' должен быть положительным числом")
 
+    base_currency = SettingsLoader().get("BASE_CURRENCY")
     currency = currency.upper()
+    if currency == base_currency:
+        raise ValueError(f"Нельзя покупать базовую валюту {base_currency}.")
+    get_currency(currency)
     try:
-        get_currency(currency) 
+        rate, _ = get_exchange_rate(currency, base_currency)
+    except (CurrencyNotFoundError, ApiRequestError) as e:
+        raise ApiRequestError(f"Не удалось получить курс для {currency}/{base_currency}: {e}")
+
+    cost_in_base = amount * rate
+    try:
+        base_wallet = _current_portfolio.get_wallet(base_currency)
     except CurrencyNotFoundError:
-        raise
+        raise InsufficientFundsError(0.0, cost_in_base, base_currency)
+
+    if base_wallet.balance < cost_in_base:
+        raise InsufficientFundsError(base_wallet.balance, cost_in_base, base_currency)
+    old_base_balance = base_wallet.balance
+    base_wallet.withdraw(cost_in_base)
 
     try:
         wallet = _current_portfolio.get_wallet(currency)
@@ -125,16 +140,14 @@ def buy(currency: str, amount: float) -> str:
     wallet.deposit(amount)
     _current_portfolio.save_portfolio()
 
-    try:
-        rate, _ = get_exchange_rate(currency, SettingsLoader().get("BASE_CURRENCY"))
-    except CurrencyNotFoundError or ApiRequestError:
-        raise
+    return (
+        f"Покупка выполнена: {amount:.4f} {currency} по курсу {rate:.2f} {base_currency}/{currency}\n"
+        f"Изменения в портфеле:\n"
+        f"- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
+        f"- {base_currency}: было {old_base_balance:.2f} → стало {base_wallet.balance:.2f}\n"
+        f"Стоимость покупки: {cost_in_base:.2f} {base_currency}\n"
 
-    value_usd = amount * rate
-    return (f"Покупка выполнена: {amount:.4f} {currency} по курсу {rate:.2f} {SettingsLoader().get("BASE_CURRENCY")}/{currency}\n"
-            f"Изменения в портфеле:\n- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
-            f"Оценочная стоимость покупки: {value_usd:.2f} {SettingsLoader().get("BASE_CURRENCY")}")
-
+    )
 
 @log_action("SELL", verbose=True)
 def sell(currency: str, amount: float) -> str:
@@ -158,12 +171,7 @@ def sell(currency: str, amount: float) -> str:
     base_currency = SettingsLoader().get("BASE_CURRENCY")
     if currency == base_currency:
         _current_portfolio.save_portfolio()
-        return (
-            f"Продажа выполнена: {amount:.2f} {base_currency}\n"
-            f"Изменения в портфеле:\n"
-            f"- {base_currency}: было {old_balance:.2f} → стало {wallet.balance:.2f}\n"
-            f"Примечание: продажа базовой валюты ({base_currency}) не конвертируется."
-        )
+        raise ValueError(f"Нельзя продавать базовую валюту {base_currency}")
 
     try:
         rate, _ = get_exchange_rate(currency, base_currency)

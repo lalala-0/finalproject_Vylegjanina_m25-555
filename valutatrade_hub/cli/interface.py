@@ -64,7 +64,7 @@ def cli_command(required_args=None, optional_args=None):
                 print(result)
 
             except ValueError as e:
-                print(f"Некорректный тип: {e}")
+                print(e)
             except InsufficientFundsError as e:
                 print(f"Недостаточно средств: доступно {e.available} {e.code}, требуется {e.required} {e.code}")
             except CurrencyNotFoundError as e:

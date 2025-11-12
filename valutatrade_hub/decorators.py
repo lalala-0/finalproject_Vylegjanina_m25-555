@@ -56,6 +56,7 @@ def log_api_call(source_name: str):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             logger.info(f"[{source_name}] Запрос курсов: старт")
+            print(f"[{source_name}] Запрос курсов: старт")
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
