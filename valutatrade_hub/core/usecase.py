@@ -1,11 +1,17 @@
+from datetime import datetime
+
 from valutatrade_hub.core.currancies import get_currency
-from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundError, InsufficientFundsError
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.settings import SettingsLoader
-from . import utils as u
-from .models import User, Portfolio
-from datetime import datetime
 from valutatrade_hub.parser_service.usecase import get_exchange_rate
+
+from . import utils as u
+from .models import Portfolio, User
 
 _current_user: User | None = None
 _current_portfolio: Portfolio | None = None
@@ -35,7 +41,8 @@ def register(username: str, password: str) -> str:
     })
     u.save_json(portfolios_file, portfolios)
 
-    return f"Пользователь '{username}' зарегистрирован (id={user_id}). Войдите: login --username {username} --password ****"
+    return f"Пользователь '{username}' зарегистрирован (id={user_id}). "\
+        f"Войдите: login --username {username} --password ****"
 
 
 @log_action("LOGIN")
@@ -118,7 +125,8 @@ def buy(currency: str, amount: float) -> str:
     try:
         rate, _ = get_exchange_rate(currency, base_currency)
     except (CurrencyNotFoundError, ApiRequestError) as e:
-        raise ApiRequestError(f"Не удалось получить курс для {currency}/{base_currency}: {e}")
+        raise ApiRequestError(\
+            f"Не удалось получить курс для {currency}/{base_currency}: {e}")
 
     cost_in_base = amount * rate
     try:
@@ -141,10 +149,12 @@ def buy(currency: str, amount: float) -> str:
     _current_portfolio.save_portfolio()
 
     return (
-        f"Покупка выполнена: {amount:.4f} {currency} по курсу {rate:.2f} {base_currency}/{currency}\n"
+        f"Покупка выполнена: {amount:.4f} {currency} "\
+            f"по курсу {rate:.2f} {base_currency}/{currency}\n"
         f"Изменения в портфеле:\n"
         f"- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
-        f"- {base_currency}: было {old_base_balance:.2f} → стало {base_wallet.balance:.2f}\n"
+        f"- {base_currency}: "\
+            f"было {old_base_balance:.2f} → стало {base_wallet.balance:.2f}\n"
         f"Стоимость покупки: {cost_in_base:.2f} {base_currency}\n"
 
     )
@@ -182,7 +192,7 @@ def sell(currency: str, amount: float) -> str:
             f"Ошибка конверсии в {base_currency}: {e.__class__.__name__} ({e})\n"
             f"Средства в {base_currency} не начислены, повторите позже."
         )
-    
+
     revenue_usd = amount * rate
     try:
         usd_wallet = _current_portfolio.get_wallet(base_currency)
@@ -193,10 +203,12 @@ def sell(currency: str, amount: float) -> str:
     _current_portfolio.save_portfolio()
 
     return (
-        f"Продажа выполнена: {amount:.4f} {currency} по курсу {rate:.2f} {base_currency}/{currency}\n"
+        f"Продажа выполнена: {amount:.4f} {currency} "\
+            f"по курсу {rate:.2f} {base_currency}/{currency}\n"
         f"Изменения в портфеле:\n"
         f"- {currency}: было {old_balance:.4f} → стало {wallet.balance:.4f}\n"
-        f"- {base_currency}: было {old_usd_balance:.2f} → стало {usd_wallet.balance:.2f}\n"
+        f"- {base_currency}: "\
+            f"было {old_usd_balance:.2f} → стало {usd_wallet.balance:.2f}\n"
         f"Оценочная выручка: {revenue_usd:.2f} {base_currency}\n"
     )
 
@@ -216,8 +228,9 @@ def get_rate(frm: str, to: str) -> str:
         inv = 1 / rate
     except Exception as e:
         raise ApiRequestError(str(e))
-    
+
     return (
-        f"Курс {frm} → {to}: {rate:.6f} (обновлено: {updated.strftime('%Y-%m-%d %H:%M:%S')})\n"
+        f"Курс {frm} → {to}: {rate:.6f} "\
+            f"(обновлено: {updated.strftime('%Y-%m-%d %H:%M:%S')})\n"
         f"Обратный курс {to} → {frm}: {inv:.6f}"
     )

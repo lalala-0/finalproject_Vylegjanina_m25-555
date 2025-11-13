@@ -1,15 +1,20 @@
 import hashlib
-from datetime import datetime
 from copy import deepcopy
+from datetime import datetime
 
-from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InsufficientFundsError
+from valutatrade_hub.core.exceptions import (
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
 from valutatrade_hub.infra.settings import SettingsLoader
 from valutatrade_hub.parser_service.usecase import get_exchange_rate
+
 from .utils import load_json, save_json
 
 
 class User:
-    def __init__(self, user_id: int, username: str, password: str, salt: str = None, registration_date: datetime = None):
+    def __init__(self, user_id: int, username: str, password: str, \
+                 salt: str = None, registration_date: datetime = None):
         if len(password) < 4:
             raise ValueError("Пароль должен быть не короче 4 символов")
 
@@ -44,7 +49,7 @@ class User:
     @property
     def salt(self):
         return self._salt
-    
+
     def _generate_salt(self) -> str:
         return hashlib.sha256(str(datetime.now().timestamp()).encode()).hexdigest()[:8]
 
@@ -110,7 +115,8 @@ class Wallet:
         if amount <= 0:
             raise ValueError("Сумма снятия должна быть положительной")
         if amount > self._balance:
-            raise InsufficientFundsError(available=self._balance, required=amount, code=self.currency_code)
+            raise InsufficientFundsError(available=self._balance, \
+                                         required=amount, code=self.currency_code)
         self._balance -= float(amount)
 
 
@@ -176,25 +182,27 @@ class Portfolio:
 
         if not data:
             return Portfolio(user_id, wallets={})
-        
+
         wallets = {
             code: Wallet(currency_code=code, balance=float(info.get("balance", 0.0)))
             for code, info in data.get("wallets", {}).items()
         }
         return Portfolio(user_id, wallets=wallets)
-    
-    
+
+
     def save_portfolio(self):
         """Сохраняет портфель текущего пользователя."""
         portfolios = load_json(SettingsLoader().get("PORTFOLIOS_FILE"))
         for p in portfolios:
             if p["user_id"] == self.user_id:
-                p["wallets"] = {code: {"balance": w.balance} for code, w in self._wallets.items()}
+                p["wallets"] = {code: {"balance": w.balance} \
+                                for code, w in self._wallets.items()}
                 break
         else:
             portfolios.append({
                 "user_id": self.user_id,
-                "wallets": {code: {"balance": w.balance} for code, w in self._wallets.items()}
+                "wallets": {code: {"balance": w.balance} \
+                            for code, w in self._wallets.items()}
             })
         save_json(SettingsLoader().get("PORTFOLIOS_FILE"), portfolios)
 

@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict
+
 from .exceptions import CurrencyNotFoundError
+
 
 class Currency(ABC):
     """Абстрактный базовый класс для валют."""
@@ -8,7 +10,8 @@ class Currency(ABC):
         if not name.strip():
             raise ValueError("name не может быть пустым")
         if not code.isupper() or not (2 <= len(code) <= 5) or " " in code:
-            raise ValueError("code должен быть в верхнем регистре (2-5 символов, без пробелов)")
+            raise ValueError("code должен быть в верхнем регистре "
+            "(2-5 символов, без пробелов)")
 
         self.name = name
         self.code = code
@@ -43,18 +46,19 @@ class CryptoCurrency(Currency):
         self.market_cap = market_cap
 
     def get_display_info(self) -> str:
-        return f"[CRYPTO] {self.code} — {self.name} (Algo: {self.algorithm}, MCAP: {self.market_cap:.2e})"
-
+        return f"[CRYPTO] {self.code} — {self.name} "\
+            f"(Algo: {self.algorithm}, MCAP: {self.market_cap:.2e})"
 
 
 _CURRENCY_REGISTRY: Dict[str, Currency] = {
     "USD": FiatCurrency("US Dollar", "USD", "United States"),
     "EUR": FiatCurrency("Euro", "EUR", "Eurozone"),
     "RUB": FiatCurrency("Russian Ruble", "RUB", "Russia"),
+    "GBP": FiatCurrency("British Pound", "GBP", "United Kingdom"),
     "BTC": CryptoCurrency("Bitcoin", "BTC", "SHA-256", 1.12e12),
     "ETH": CryptoCurrency("Ethereum", "ETH", "Ethash", 3.9e11),
+    "SOL": CryptoCurrency("Solana", "SOL", "Proof of History", 1.0e10),
 }
-
 
 def get_currency(code: str) -> Currency:
     """Возвращает объект Currency по коду, если он известен."""

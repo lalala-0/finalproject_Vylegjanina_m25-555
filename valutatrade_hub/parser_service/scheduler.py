@@ -1,9 +1,14 @@
 import time
-from valutatrade_hub.parser_service.updater import RatesUpdater
-from valutatrade_hub.parser_service.api_clients import CoinGeckoClient, ExchangeRateApiClient
-from valutatrade_hub.parser_service.storage import RatesStorage
+
+from valutatrade_hub.infra.logger import logger
+from valutatrade_hub.parser_service.api_clients import (
+    CoinGeckoClient,
+    ExchangeRateApiClient,
+)
 from valutatrade_hub.parser_service.config import ParserConfig
-from valutatrade_hub.infra.logger import logger 
+from valutatrade_hub.parser_service.storage import RatesStorage
+from valutatrade_hub.parser_service.updater import RatesUpdater
+
 
 class UpdateScheduler:
     """Периодический запуск обновления курсов."""

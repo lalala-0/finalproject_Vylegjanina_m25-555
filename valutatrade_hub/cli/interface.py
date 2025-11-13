@@ -1,27 +1,40 @@
 import shlex
-
-from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundError, InsufficientFundsError
-from valutatrade_hub.parser_service.usecase import show_rates, update_rates
-from ..core import usecase
-import prompt
 from functools import wraps
+from json import JSONDecodeError
+
+import prompt
+
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
+from valutatrade_hub.parser_service.usecase import show_rates, update_rates
+
+from ..core import usecase
 
 
 def print_help():
-    print(
-        "Доступные команды:\n"
-        "  register --username <имя> --password <пароль>   — регистрация\n"
-        "  login --username <имя> --password <пароль>      — вход\n"
-        "  show-portfolio [--base USD]                     — показать портфель\n"
-        "  buy --currency <код> --amount <число>           — купить валюту\n"
-        "  sell --currency <код> --amount <число>          — продать валюту\n"
-        "  get-rate --from <код> --to <код>                — получить курс\n"
-        "  update-rates [--source coingecko|exchangerate]  — обновить кеш курсов валют (по умолчанию все источники)\n"
-        "  show-rates [--currency <код>] [--top <число>]   — показать актуальные курсы из кеша отсортирвоанные по алфавиту,\n"
-        "                                                    можно фильтровать по валюте, количеству самых дорогих валют (сортировка по стоимости)\n"
-        "  help                                                — показать список доступных команд\n"
-        "  exit                                            — выход\n"
-    )
+    commands = [
+        ("register --username <имя> --password <пароль>", "регистрация"),
+        ("login --username <имя> --password <пароль>", "вход"),
+        ("show-portfolio [--base USD]", "показать портфель"),
+        ("buy --currency <код> --amount <число>", "купить валюту"),
+        ("sell --currency <код> --amount <число>", "продать валюту"),
+        ("get-rate --from <код> --to <код>", "получить курс"),
+        ("update-rates [--source coingecko|exchangerate]",
+         "обновить кэш курсов валют (по умолчанию все источники)"),
+        ("show-rates [--currency <код>] [--top <число>]",
+         "показать актуальные курсы из кэша"),
+        ("help", "показать список доступных команд"),
+        ("exit", "выход"),
+    ]
+
+    print("\nДоступные команды:\n")
+    for cmd, desc in commands:
+        print(f"  {cmd:<50} — {desc}")
+    print()
+
 
 def get_arg(params, name, default=None):
     """Вспомогательная функция для парсинга аргументов"""
@@ -42,7 +55,7 @@ def get_arg(params, name, default=None):
 def cli_command(required_args=None, optional_args=None):
     """
     Декоратор для CLI-команд.
-    required_args: список обязательных аргументов (например ["--username", "--password"])
+    required_args: список обязательных аргументов (например ["--username", "--amount"])
     optional_args: словарь с параметрами по умолчанию, например {"--base": "USD"}
     """
     required_args = required_args or []
@@ -60,17 +73,26 @@ def cli_command(required_args=None, optional_args=None):
                     elif default is not None:
                         parsed[arg] = default
 
-                result = fn(**{k.lstrip('-'): v for k, v in parsed.items() if v is not None})
+                result = fn(**{k.lstrip('-'): \
+                               v for k, v in parsed.items() if v is not None})
                 print(result)
 
+            except JSONDecodeError as e:
+                print(f"Некорректный JSON-файл ({e.filename}).")
+                print(f"Проверьте синтаксис (строка {e.lineno}): {e.msg}")
             except ValueError as e:
                 print(e)
             except InsufficientFundsError as e:
-                print(f"Недостаточно средств: доступно {e.available} {e.code}, требуется {e.required} {e.code}")
+                print(f"Недостаточно средств: доступно {e.available} {e.code}, "\
+                                            f"требуется {e.required} {e.code}")
             except CurrencyNotFoundError as e:
-                print(f"Неизвестная валюта '{e.code}'. Используйте help get-rate или проверьте поддерживаемые валюты.")
+                print(f"Неизвестная валюта '{e.code}'. "\
+                      f"Используйте help get-rate или проверьте поддерживаемые валюты.")
             except ApiRequestError as e:
-                print(f"Ошибка при обращении к внешнему API: {e.reason}. Попробуйте позже или проверьте сеть.")
+                print(f"Ошибка при обращении к внешнему API: {e.reason}. "\
+                      f"Попробуйте позже или проверьте сеть.")
+            except FileNotFoundError as e:
+                print(f"Файл данных не найден: {e.filename}")
             except Exception as e:
                 print(f"Неожиданная ошибка: {e}")
 
@@ -158,5 +180,6 @@ def cli():
 
 
             case _:
-                print(f"Неизвестная команда: {cmd}. Введите 'help' для списка доступных.")
+                print(f"Неизвестная команда: {cmd}. "\
+                      f"Введите 'help' для списка доступных.")
 

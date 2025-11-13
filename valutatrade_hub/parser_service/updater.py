@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
 from typing import List
+
 from valutatrade_hub.core.exceptions import ApiRequestError
+from valutatrade_hub.logging_config import logger
 from valutatrade_hub.parser_service.api_clients import BaseApiClient
 from valutatrade_hub.parser_service.storage import RatesStorage
-from valutatrade_hub.logging_config import logger
+
 
 class RatesUpdater:
     """
@@ -15,8 +17,11 @@ class RatesUpdater:
         self.clients = clients
         self.storage = storage
 
-    def run_update(self):
-        """Запускает процесс обновления курсов."""
+    def run_update(self) -> int:
+        """
+        Запускает процесс обновления курсов.
+        Возвращает количество обновленных курсов.
+        """
         updated_rates = {}
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat(timespec="seconds")
@@ -39,7 +44,7 @@ class RatesUpdater:
 
         if not updated_rates:
             logger.warning("Не удалось получить ни одного курса от всех клиентов.")
-            return
+            return 0
 
         updated_rates["source"] = "ParserService"
         updated_rates["last_refresh"] = now_iso
@@ -47,3 +52,4 @@ class RatesUpdater:
         self.storage.save_rates(updated_rates)
         logger.info(f"Обновление завершено: {len(self.clients)} клиентов опрошены, "
                     f"{len(updated_rates) - 2} пар курсов сохранено")
+        return len(updated_rates)

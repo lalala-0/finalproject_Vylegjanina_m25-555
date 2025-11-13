@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 
-
 class ParserConfig:
     _instance = None
 
@@ -50,12 +49,14 @@ class ParserConfig:
             env_value = os.getenv("EXCHANGERATE_API_KEY")
             if env_value is not None:
                 return env_value
+        self.reload()
         return self._data.get(key, self.DEFAULTS.get(key, default))
 
     def reload(self):
         """Перезагрузка конфигурации с диска. Если файла нет — создаём с дефолтами."""
         if not self._config_path.exists():
-            print(f"Конфиг {self._config_path} не найден, создаю с настройками парсера по умолчанию.")
+            print(f"Конфиг {self._config_path} не найден, "/
+                  "создаю с настройками парсера по умолчанию.")
             self._data = self.DEFAULTS.copy()
             self._config_path.parent.mkdir(parents=True, exist_ok=True)
             with self._config_path.open("w", encoding="utf-8") as f:
@@ -66,10 +67,10 @@ class ParserConfig:
             try:
                 self._data = json.load(f)
             except json.JSONDecodeError:
-                print(f"Ошибка чтения {self._config_path}, восстановлены значения по умолчанию.")
+                print(f"Ошибка чтения {self._config_path}, "/
+                      "восстановлены значения по умолчанию.")
                 self._data = self.DEFAULTS.copy()
 
-        # Если в конфиге чего-то нет — дополним из DEFAULTS
         updated = False
         for key, value in self.DEFAULTS.items():
             if key not in self._data:
@@ -77,7 +78,6 @@ class ParserConfig:
                 updated = True
 
         if updated:
-            # Автоматически дописываем недостающие поля в файл
             with self._config_path.open("w", encoding="utf-8") as f:
                 json.dump(self._data, f, indent=2, ensure_ascii=False)
 

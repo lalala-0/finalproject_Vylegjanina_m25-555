@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+
 class SettingsLoader:
     _instance = None
     # Реализовано через __new__ — проще и читаемее, чем метакласс.

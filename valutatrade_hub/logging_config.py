@@ -1,7 +1,9 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
 from valutatrade_hub.infra.settings import SettingsLoader
+
 
 class LoggerSingleton:
     _instance = None

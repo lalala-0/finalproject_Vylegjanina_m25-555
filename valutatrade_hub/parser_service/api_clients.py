@@ -1,9 +1,10 @@
 # valutatrade_hub/parser_service/api_clients.py
 
-import requests
-import time
 from abc import ABC, abstractmethod
 from typing import Dict
+
+import requests
+
 from valutatrade_hub.core.exceptions import ApiRequestError
 from valutatrade_hub.decorators import log_api_call
 from valutatrade_hub.parser_service.config import ParserConfig
@@ -75,7 +76,7 @@ class CoinGeckoClient(BaseApiClient):
             data = response.json()
         except ValueError:
             raise ApiRequestError("Некорректный JSON-ответ")
-        
+
         rates = {}
         for symbol, coin_id in crypto_map.items():
             try:

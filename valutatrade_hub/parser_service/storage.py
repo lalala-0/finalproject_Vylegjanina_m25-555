@@ -1,7 +1,8 @@
 import json
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict
+
 from valutatrade_hub.infra.settings import SettingsLoader
 
 settings = SettingsLoader()
@@ -10,8 +11,10 @@ class RatesStorage:
     """Хранилище для курсов валют."""
 
     def __init__(self):
-        self.rates_file = Path(settings.get("RATES_FILE", "data/rates.json"))
-        self.history_file = Path(settings.get("HISTORY_FILE", "data/exchange_rates.json"))
+        self.rates_file = Path(settings.get("RATES_FILE",
+                                            "data/rates.json"))
+        self.history_file = Path(settings.get("HISTORY_FILE",
+                                              "data/exchange_rates.json"))
         self.rates_file.parent.mkdir(parents=True, exist_ok=True)
 
     def load_rates(self) -> Dict:
@@ -22,7 +25,10 @@ class RatesStorage:
             return json.load(f)
 
     def save_rates(self, rates: Dict):
-        """Сохранить актуальные курсы (rates.json) и добавить в историю (exchange_rates.json)."""
+        """
+        Сохранить актуальные курсы (rates.json)
+        и добавить в историю (exchange_rates.json).
+        """
         with self.rates_file.open("w", encoding="utf-8") as f:
             json.dump(rates, f, ensure_ascii=False, indent=2)
 
