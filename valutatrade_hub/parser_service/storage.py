@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
@@ -35,7 +34,7 @@ class RatesStorage:
             history = DatabaseManager().load(self.history_file)
         except FileNotFoundError:
             history = []
-            
+
         now_iso = datetime.now(timezone.utc).isoformat()
         for pair, data in rates.items():
             if pair in ("source", "last_refresh"):

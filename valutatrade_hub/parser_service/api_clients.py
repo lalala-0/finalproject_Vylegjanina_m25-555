@@ -1,5 +1,3 @@
-# valutatrade_hub/parser_service/api_clients.py
-
 from abc import ABC, abstractmethod
 from typing import Dict
 

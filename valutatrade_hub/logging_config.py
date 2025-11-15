@@ -50,5 +50,4 @@ class LoggerSingleton:
 
         self._initialized = True
 
-# Для удобства можно сразу экспортировать готовый экземпляр
 logger = LoggerSingleton().logger

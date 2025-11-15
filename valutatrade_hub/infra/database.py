@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from threading import Lock
 
 
@@ -18,11 +18,13 @@ class DatabaseManager:
     def load(self, path: str):
         """Загрузка данных из json."""
         if not os.path.exists(path):
+            self.save(path, [])
             raise FileNotFoundError
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
     def save(self, path: str, data):
         """Сохранение данных в json."""
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)

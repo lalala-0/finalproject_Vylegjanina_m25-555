@@ -1,20 +1,22 @@
 from datetime import datetime
+
 from prettytable import PrettyTable
 
+from valutatrade_hub.decorators import log_action
+from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.logging_config import logger
+from valutatrade_hub.parser_service.config import ParserConfig
+from valutatrade_hub.parser_service.storage import RatesStorage
+
+from . import utils as u
+from .currancies import get_currency
 from .exceptions import (
     ApiRequestError,
     CurrencyNotFoundError,
     InsufficientFundsError,
+    RateNotFoundError,
 )
-from . import utils as u
 from .models import Portfolio, User
-from .currancies import get_currency
-
-from valutatrade_hub.decorators import log_action
-from valutatrade_hub.logging_config import logger
-from valutatrade_hub.infra.settings import SettingsLoader
-from valutatrade_hub.parser_service.config import ParserConfig
-from valutatrade_hub.parser_service.storage import RatesStorage
 
 _current_user: User | None = None
 _current_portfolio: Portfolio | None = None
@@ -85,7 +87,7 @@ def show_portfolio(base: str = "USD") -> str:
     rates = u.load_json(SettingsLoader().get("RATES_FILE"))
     base_found = any(base in key.split("_") for key in rates.keys() if "_" in key)
     if not base_found:
-        raise CurrencyNotFoundError(base)
+        raise RateNotFoundError(base)
 
     wallets = _current_portfolio.wallets
     if not wallets:
@@ -97,7 +99,7 @@ def show_portfolio(base: str = "USD") -> str:
     for code, wallet in wallets.items():
         try:
             rate, _ = u.get_exchange_rate(code, base)
-        except CurrencyNotFoundError:
+        except RateNotFoundError:
             lines.append(f"- {code}: {wallet.balance:.4f} (нет курса {code}→{base})")
             continue
         except ApiRequestError as e:
@@ -276,7 +278,7 @@ def show_rates(currency: str = None, top: int = None) -> str:
     except CurrencyNotFoundError as e:
         logger.error(e)
         return f"ERROR: {e}"
-    if top < 0:
+    if top is not None and top < 0:
         logger.error("Параметр 'top' должен быть положительным числом")
         return "ERROR: Параметр 'top' должен быть положительным числом"
 

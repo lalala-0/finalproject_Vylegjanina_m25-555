@@ -1,7 +1,6 @@
 import functools
 import inspect
 import time as time
-from datetime import datetime
 
 from valutatrade_hub.logging_config import logger
 
@@ -18,7 +17,6 @@ def log_action(action: str, verbose: bool = False):
             bound.apply_defaults()
             params = bound.arguments
 
-            timestamp = datetime.now().isoformat(timespec="seconds")
             username = params.get("username") or \
                         getattr(params.get("user", None), "username", None) or \
                             getattr(usecase._current_user, "username", None)
@@ -38,7 +36,7 @@ def log_action(action: str, verbose: bool = False):
                     log_msg += f" | balance: "\
                                 f"{result.balance_before} → {result.balance_after}"
 
-                logger.info(f"{timestamp} {log_msg}")
+                logger.info(f"{log_msg}")
                 return result
 
             except Exception as e:
@@ -46,7 +44,7 @@ def log_action(action: str, verbose: bool = False):
                     f"{action} user='{username}' currency='{currency}' amount={amount} "
                     f"result=ERROR type={type(e).__name__} message='{e}'"
                 )
-                logger.error(f"{timestamp} {log_msg}")
+                logger.error(f"{log_msg}")
                 raise
 
         return wrapper

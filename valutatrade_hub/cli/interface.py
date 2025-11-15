@@ -11,6 +11,7 @@ from valutatrade_hub.core.exceptions import (
     InsufficientFundsError,
     RateNotFoundError,
 )
+
 from ..core import usecase
 
 
@@ -86,7 +87,8 @@ def cli_command(required_args=None, optional_args=None):
                 print(f"Недостаточно средств: доступно {e.available} {e.code}, "\
                                             f"требуется {e.required} {e.code}")
             except RateNotFoundError as e:
-                print(f"{e} Используйте show-rates для просмотра списка курсов.")
+                print(f"Курс {e.code} не найден.")
+                print("Используйте show-rates для просмотра списка курсов.")
             except CurrencyNotFoundError as e:
                 print(f"Неизвестная валюта '{e.code}'. Доступные валюты: \n")
                 print(getRegistryCurrencys())

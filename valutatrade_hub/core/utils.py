@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 from venv import logger
 
-from valutatrade_hub.core.exceptions import ApiRequestError, CurrencyNotFoundError, RateNotFoundError
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    RateNotFoundError,
+)
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
 from valutatrade_hub.parser_service.api_clients import (
@@ -11,6 +14,7 @@ from valutatrade_hub.parser_service.api_clients import (
 from valutatrade_hub.parser_service.config import ParserConfig
 from valutatrade_hub.parser_service.storage import RatesStorage
 from valutatrade_hub.parser_service.updater import RatesUpdater
+
 
 def load_json(path: str):
     """Загрузка данных из json"""
