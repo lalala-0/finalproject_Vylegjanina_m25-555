@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "finalproject-vylegjanina-m25-555"
-version = "0.2.0"
+version = "1.0.0"
 description = "Платформа для отслеживания и симуляции торговли валютами"
 authors = ["lalala-0 <vylegzhanina.alena@yandex.ru>"]
 readme = "README.md"
