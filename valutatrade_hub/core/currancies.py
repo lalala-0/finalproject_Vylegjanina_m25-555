@@ -21,7 +21,6 @@ class Currency(ABC):
         """Возвращает строковое представление валюты для UI/логов."""
         pass
 
-
 class FiatCurrency(Currency):
     """Фиатная валюта (эмитент - государство или валютная зона)."""
     def __init__(self, name: str, code: str, issuing_country: str):
@@ -66,4 +65,11 @@ def get_currency(code: str) -> Currency:
     if code not in _CURRENCY_REGISTRY:
         raise CurrencyNotFoundError(code)
     return _CURRENCY_REGISTRY[code]
+
+
+def getRegistryCurrencys():
+    resStr = ""
+    for code in _CURRENCY_REGISTRY.keys():
+        resStr += get_currency(code).get_display_info() + "\n"
+    return resStr
 

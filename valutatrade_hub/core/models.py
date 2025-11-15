@@ -7,9 +7,8 @@ from valutatrade_hub.core.exceptions import (
     InsufficientFundsError,
 )
 from valutatrade_hub.infra.settings import SettingsLoader
-from valutatrade_hub.parser_service.usecase import get_exchange_rate
 
-from .utils import load_json, save_json
+from .utils import get_exchange_rate, load_json, save_json
 
 
 class User:

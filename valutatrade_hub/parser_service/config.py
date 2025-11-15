@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from valutatrade_hub.infra.database import DatabaseManager
+
 
 class ParserConfig:
     _instance = None
@@ -54,22 +56,20 @@ class ParserConfig:
 
     def reload(self):
         """Перезагрузка конфигурации с диска. Если файла нет — создаём с дефолтами."""
-        if not self._config_path.exists():
+
+        try:
+            self._data = DatabaseManager().load(self._config_path)
+        except json.JSONDecodeError:
+            print(f"Ошибка чтения {self._config_path}, "/
+                    "восстановлены значения по умолчанию.")
+            self._data = self.DEFAULTS.copy()
+        except FileNotFoundError:
             print(f"Конфиг {self._config_path} не найден, "/
                   "создаю с настройками парсера по умолчанию.")
             self._data = self.DEFAULTS.copy()
             self._config_path.parent.mkdir(parents=True, exist_ok=True)
-            with self._config_path.open("w", encoding="utf-8") as f:
-                json.dump(self._data, f, indent=2, ensure_ascii=False)
+            DatabaseManager().save(self._config_path, self._data)
             return
-
-        with self._config_path.open("r", encoding="utf-8") as f:
-            try:
-                self._data = json.load(f)
-            except json.JSONDecodeError:
-                print(f"Ошибка чтения {self._config_path}, "/
-                      "восстановлены значения по умолчанию.")
-                self._data = self.DEFAULTS.copy()
 
         updated = False
         for key, value in self.DEFAULTS.items():
@@ -78,8 +78,7 @@ class ParserConfig:
                 updated = True
 
         if updated:
-            with self._config_path.open("w", encoding="utf-8") as f:
-                json.dump(self._data, f, indent=2, ensure_ascii=False)
+            DatabaseManager().save(self._config_path, self._data)
 
     def as_dict(self) -> dict:
         """Возвращает полную конфигурацию в виде словаря."""

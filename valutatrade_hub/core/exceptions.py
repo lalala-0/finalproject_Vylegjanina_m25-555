@@ -19,6 +19,13 @@ class CurrencyNotFoundError(Exception):
         message = f"Неизвестная валюта '{code}'"
         super().__init__(message)
 
+class RateNotFoundError(Exception):
+    """Выбрасывается, если курс не найден."""
+
+    def __init__(self, code: str):
+        self.code = code
+        message = f"Курс '{code}' не найден"
+        super().__init__(message)
 
 class ApiRequestError(Exception):
     """Выбрасывается при сбое внешнего API (например, получение курсов валют)."""

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
 
+from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
 
 settings = SettingsLoader()
@@ -21,25 +22,20 @@ class RatesStorage:
         """Загрузить актуальные курсы (rates.json)."""
         if not self.rates_file.exists():
             return {}
-        with self.rates_file.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        return DatabaseManager().load(self.rates_file)
 
     def save_rates(self, rates: Dict):
         """
         Сохранить актуальные курсы (rates.json)
         и добавить в историю (exchange_rates.json).
         """
-        with self.rates_file.open("w", encoding="utf-8") as f:
-            json.dump(rates, f, ensure_ascii=False, indent=2)
+        DatabaseManager().save(self.rates_file, rates)
 
-        history = []
-        if self.history_file.exists():
-            with self.history_file.open("r", encoding="utf-8") as f:
-                try:
-                    history = json.load(f)
-                except json.JSONDecodeError:
-                    history = []
-
+        try:
+            history = DatabaseManager().load(self.history_file)
+        except FileNotFoundError:
+            history = []
+            
         now_iso = datetime.now(timezone.utc).isoformat()
         for pair, data in rates.items():
             if pair in ("source", "last_refresh"):
@@ -54,5 +50,4 @@ class RatesStorage:
             }
             history.append(entry)
 
-        with self.history_file.open("w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
+        DatabaseManager().save(self.history_file, history)

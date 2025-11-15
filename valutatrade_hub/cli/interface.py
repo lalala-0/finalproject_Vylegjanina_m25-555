@@ -4,13 +4,13 @@ from json import JSONDecodeError
 
 import prompt
 
+from valutatrade_hub.core.currancies import getRegistryCurrencys
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
     CurrencyNotFoundError,
     InsufficientFundsError,
+    RateNotFoundError,
 )
-from valutatrade_hub.parser_service.usecase import show_rates, update_rates
-
 from ..core import usecase
 
 
@@ -85,12 +85,13 @@ def cli_command(required_args=None, optional_args=None):
             except InsufficientFundsError as e:
                 print(f"Недостаточно средств: доступно {e.available} {e.code}, "\
                                             f"требуется {e.required} {e.code}")
+            except RateNotFoundError as e:
+                print(f"{e} Используйте show-rates для просмотра списка курсов.")
             except CurrencyNotFoundError as e:
-                print(f"Неизвестная валюта '{e.code}'. "\
-                      f"Используйте help get-rate или проверьте поддерживаемые валюты.")
+                print(f"Неизвестная валюта '{e.code}'. Доступные валюты: \n")
+                print(getRegistryCurrencys())
             except ApiRequestError as e:
-                print(f"Ошибка при обращении к внешнему API: {e.reason}. "\
-                      f"Попробуйте позже или проверьте сеть.")
+                print(f"{e} Попробуйте позже или проверьте сеть.")
             except FileNotFoundError as e:
                 print(f"Файл данных не найден: {e.filename}")
             except Exception as e:
@@ -166,7 +167,7 @@ def cli():
             case "update-rates":
                 @cli_command(optional_args={"--source": None})
                 def cmd_update_rates(source=None):
-                    return update_rates(source)
+                    return usecase.update_rates(source)
                 cmd_update_rates(params)
             case "show-rates":
                 @cli_command(optional_args={"--currency": None, "--top": None})
@@ -175,7 +176,7 @@ def cli():
                         top_value = int(top) if top is not None else None
                     except ValueError:
                         return "ERROR: Параметр --top должен быть числом."
-                    return show_rates(currency, top_value)
+                    return usecase.show_rates(currency, top_value)
                 cmd_show_rates(params)
 
 

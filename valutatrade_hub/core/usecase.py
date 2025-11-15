@@ -1,17 +1,20 @@
 from datetime import datetime
+from prettytable import PrettyTable
 
-from valutatrade_hub.core.currancies import get_currency
-from valutatrade_hub.core.exceptions import (
+from .exceptions import (
     ApiRequestError,
     CurrencyNotFoundError,
     InsufficientFundsError,
 )
-from valutatrade_hub.decorators import log_action
-from valutatrade_hub.infra.settings import SettingsLoader
-from valutatrade_hub.parser_service.usecase import get_exchange_rate
-
 from . import utils as u
 from .models import Portfolio, User
+from .currancies import get_currency
+
+from valutatrade_hub.decorators import log_action
+from valutatrade_hub.logging_config import logger
+from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.parser_service.config import ParserConfig
+from valutatrade_hub.parser_service.storage import RatesStorage
 
 _current_user: User | None = None
 _current_portfolio: Portfolio | None = None
@@ -93,7 +96,7 @@ def show_portfolio(base: str = "USD") -> str:
 
     for code, wallet in wallets.items():
         try:
-            rate, _ = get_exchange_rate(code, base)
+            rate, _ = u.get_exchange_rate(code, base)
         except CurrencyNotFoundError:
             lines.append(f"- {code}: {wallet.balance:.4f} (нет курса {code}→{base})")
             continue
@@ -123,7 +126,7 @@ def buy(currency: str, amount: float) -> str:
         raise ValueError(f"Нельзя покупать базовую валюту {base_currency}.")
     get_currency(currency)
     try:
-        rate, _ = get_exchange_rate(currency, base_currency)
+        rate, _ = u.get_exchange_rate(currency, base_currency)
     except (CurrencyNotFoundError, ApiRequestError) as e:
         raise ApiRequestError(\
             f"Не удалось получить курс для {currency}/{base_currency}: {e}")
@@ -184,7 +187,7 @@ def sell(currency: str, amount: float) -> str:
         raise ValueError(f"Нельзя продавать базовую валюту {base_currency}")
 
     try:
-        rate, _ = get_exchange_rate(currency, base_currency)
+        rate, _ = u.get_exchange_rate(currency, base_currency)
     except (CurrencyNotFoundError, ApiRequestError) as e:
         _current_portfolio.save_portfolio()
         return (
@@ -224,7 +227,7 @@ def get_rate(frm: str, to: str) -> str:
         raise
 
     try:
-        rate, updated = get_exchange_rate(frm, to)
+        rate, updated = u.get_exchange_rate(frm, to)
         inv = 1 / rate
     except Exception as e:
         raise ApiRequestError(str(e))
@@ -234,3 +237,106 @@ def get_rate(frm: str, to: str) -> str:
             f"(обновлено: {updated.strftime('%Y-%m-%d %H:%M:%S')})\n"
         f"Обратный курс {to} → {frm}: {inv:.6f}"
     )
+
+def update_rates(source: str| None = None) -> str:
+    """
+    Обновляет курсы валют через RatesUpdater, логирует процесс и выводит краткий отчёт.
+    source: 'coingecko', 'exchangerate' или None (все источники)
+    """
+    try:
+        print("INFO: Старт обновления курсов...")
+        logger.info("Старт обновления курсов...")
+
+        u.update_rates(source)
+
+        storage = RatesStorage()
+        rates = storage.load_rates()
+        last_refr = rates.get("last_refresh", "unknown").replace('T', ' ').split('+')[0]
+        total_updated = len([k for k in rates if k not in ("source", "last_refresh")])
+
+        logger.info(f"Обновление курсов успешно. Всего обновлено: {total_updated}. "\
+            f"Время последнего обновления: {last_refr}")
+        return f"INFO: Обновление курсов успешно. Всего обновлено: {total_updated}. "\
+            f"Время последнего обновления: {last_refr}"
+
+    except ApiRequestError as e:
+        logger.error(e)
+        return f"ERROR: {e}"
+
+def show_rates(currency: str = None, top: int = None) -> str:
+    """
+    Показать список актуальных курсов из локального кэша, упорядоченный по алфавиту.
+    Опционально фильтрует по валюте (--currency),
+    показывает N самых дорогих и упорядочивает по стоимости (--top).
+    """
+    try:
+        if currency is not None:
+            currency = currency.upper()
+            get_currency(currency)
+    except CurrencyNotFoundError as e:
+        logger.error(e)
+        return f"ERROR: {e}"
+    if top < 0:
+        logger.error("Параметр 'top' должен быть положительным числом")
+        return "ERROR: Параметр 'top' должен быть положительным числом"
+
+    base =  ParserConfig().get("BASE_CURRENCY", "USD")
+
+    storage = RatesStorage()
+    rates = storage.load_rates()
+    if not rates or "last_refresh" not in rates:
+        msg = "Локальный кеш курсов пуст. " \
+        "Выполните 'update-rates', чтобы загрузить данные."
+        logger.warning(msg)
+        return f"WARNING: {msg}"
+
+    last_refresh = rates.get("last_refresh")
+    filtered = []
+
+    for pair, info in rates.items():
+        if pair in ("source", "last_refresh"):
+            continue
+
+        from_curr, to_curr = pair.split("_")
+        if currency and from_curr != currency:
+            continue
+
+        rate = info["rate"]
+        if base != to_curr:
+            try:
+                if (key := f"{to_curr}_{base}") in rates:
+                    base_rate = rates[key]["rate"], \
+                        datetime.fromisoformat(rates[key]["updated_at"])
+                if (rev := f"{base}_{to_curr}") in rates:
+                    base_rate = 1 / rates[rev]["rate"], \
+                        datetime.fromisoformat(rates[rev]["updated_at"])
+                rate /= base_rate
+                to_curr = base
+            except Exception:
+                continue
+
+        filtered.append((f"{from_curr}_{to_curr}", rate, info["updated_at"]))
+
+    if not filtered:
+        msg = f"Курс для '{currency}' не найден в кеше." \
+            if currency else "Нет доступных курсов."
+        logger.info(msg)
+        return f"INFO: {msg}"
+
+    if top:
+        filtered.sort(key=lambda x: x[1], reverse=True)
+        filtered = filtered[:int(top)]
+    else:
+        filtered.sort(key=lambda x: x[0])
+
+    table = PrettyTable()
+    table.field_names = ["Валютная пара", "Курс", "Обновлено"]
+    table.align["Курс"] = "r"
+
+    for pair, rate, updated_at in filtered:
+        table.add_row([pair, f"{rate:.6f}", updated_at.replace('T', ' ').split('+')[0]])
+
+    table_str = f"Курсы из кэша "\
+        f"(обновлены {last_refresh.replace('T', ' ').split('+')[0]}):\n{table}"
+    return table_str
+

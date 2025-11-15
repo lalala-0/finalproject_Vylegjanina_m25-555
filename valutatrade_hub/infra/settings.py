@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from valutatrade_hub.infra.database import DatabaseManager
+
 
 class SettingsLoader:
     _instance = None
@@ -34,5 +36,4 @@ class SettingsLoader:
         """Перезагрузка конфигурации с диска."""
         if not self._config_path.exists():
             raise FileNotFoundError(f"Файл конфигурации {self._config_path} не найден")
-        with self._config_path.open("r", encoding="utf-8") as f:
-            self._data = json.load(f)
+        self._data = DatabaseManager().load(self._config_path)
